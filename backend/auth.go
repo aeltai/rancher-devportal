@@ -32,9 +32,10 @@ type AuthMeResponse struct {
 }
 
 type requestUser struct {
-	Token    string
-	AuthMode string
-	User     RancherUser
+	Token      string
+	AuthMode   string
+	User       RancherUser
+	Kubeconfig string
 }
 
 const ctxRequestUser = "devportalRequestUser"
@@ -83,7 +84,12 @@ func loadRequestUser(c *gin.Context) (*requestUser, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid Rancher token: %w", err)
 	}
-	ru := &requestUser{Token: token, AuthMode: authMode, User: user}
+	ru := &requestUser{
+		Token:      token,
+		AuthMode:   authMode,
+		User:       user,
+		Kubeconfig: kubeconfigPathForUser(user.ID),
+	}
 	c.Set(ctxRequestUser, ru)
 	return ru, nil
 }
@@ -103,6 +109,12 @@ func isRancherAdmin(token, userID, authMode string) bool {
 	if authMode == "service" {
 		return true
 	}
+	user, err := fetchRancherUser(token)
+	if err == nil {
+		if strings.EqualFold(user.Username, "admin") {
+			return true
+		}
+	}
 	q := url.Values{}
 	q.Set("userId", userID)
 	body, err := rancherRequestWithToken("GET", "/v3/globalRoleBindings?"+q.Encode(), token)
@@ -112,15 +124,18 @@ func isRancherAdmin(token, userID, authMode string) bool {
 	var result struct {
 		Data []struct {
 			GlobalRoleID string `json:"globalRoleId"`
+			RoleTemplateID string `json:"roleTemplateId"`
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
 		return false
 	}
 	for _, b := range result.Data {
-		id := strings.ToLower(strings.TrimSpace(b.GlobalRoleID))
-		if id == "admin" || strings.HasSuffix(id, "-admin") {
-			return true
+		for _, id := range []string{b.GlobalRoleID, b.RoleTemplateID} {
+			id = strings.ToLower(strings.TrimSpace(id))
+			if id == "admin" || strings.Contains(id, "admin") {
+				return true
+			}
 		}
 	}
 	return false

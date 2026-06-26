@@ -13,10 +13,9 @@ services:
       - RANCHER_URL=https://rancher:443
       - RANCHER_TOKEN=${RANCHER_TOKEN:-}
       - PLATFORM_NAMESPACE=devportal-system
-      - KUBECONFIG=/kube/config
+      - PLATFORM_GIT_REPO=https://github.com/aeltai/rancher-devportal
+      - PLATFORM_GIT_BRANCH=main
       - ALLOW_SERVICE_TOKEN=true
-    volumes:
-      - ${KUBECONFIG_HOST:-~/.kube/config}:/kube/config:ro
     networks:
       - krew-workstation_default
     restart: unless-stopped

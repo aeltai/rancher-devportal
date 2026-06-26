@@ -3,6 +3,7 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY *.go ./
+COPY crd/ ./crd/
 RUN CGO_ENABLED=0 GOOS=linux go build -o devportal-backend .
 
 FROM alpine:latest

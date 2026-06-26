@@ -127,6 +127,7 @@ func main() {
 		api.GET("/portal/catalog", handlePortalCatalog)
 		api.GET("/portal/stack", handlePortalStack)
 		api.GET("/portal/requests", handlePortalListRequests)
+		api.GET("/portal/requests/:name", handlePortalGetRequest)
 		api.POST("/portal/requests", handlePortalCreateRequest)
 	}
 
