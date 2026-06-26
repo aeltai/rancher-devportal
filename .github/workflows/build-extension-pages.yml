@@ -33,7 +33,7 @@ jobs:
         run: |
           mkdir -p _site/extensions/devportal/0.1.0/plugin
           cp -r dist-pkg/devportal-0.1.0/* _site/extensions/devportal/0.1.0/plugin/
-          cp docs/README.md _site/index.md 2>/dev/null || cp README.md _site/index.md
+          cp docs/pages/index.html _site/index.html
 
       - uses: actions/upload-pages-artifact@v3
         with:

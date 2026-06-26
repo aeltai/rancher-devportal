@@ -21,33 +21,30 @@ This project is separate from [Krew Workstation](https://github.com/aeltai/krew-
 | **CRD** (`deploy/crd/`) | `PlatformRequest` custom resource |
 | **Helm** (`helm/devportal/`) | Backend Deployment + UIPlugin |
 
-## Quick start (local)
+## Local development (inside Krew Workstation UI)
 
-### 1. Rancher + backend
+Developer Portal is **not a separate website**. It appears in the **same Rancher Dashboard** as Krew Workstation.
 
-```bash
-# Optional: .env with RANCHER_TOKEN for dev fallback
-docker compose up -d
-```
-
-Rancher: **https://localhost:8450** (bootstrap password `admin`).
-
-Backend: **http://localhost:9010**
-
-Apply the CRD on your cluster (required for requests):
+From **krew-workstation**:
 
 ```bash
-kubectl apply -f deploy/crd/platformrequest.yaml
+./scripts/link-devportal.sh
+docker compose -f ../rancher-devportal/docker-compose.local.yml up -d
+cd ../krew-workstation && API=http://localhost:8089 yarn dev
 ```
 
-### 2. UI dev server
+Open **https://localhost:8005** → sidebar shows **Tools → Krew Workstation** and **Platform → Developer Portal**.
+
+Do not run `yarn dev` in this repo on a separate port unless you are developing the portal UI in isolation.
+
+## Standalone dev (portal UI only)
 
 ```bash
 yarn install
-API=http://localhost:9010 yarn dev
+API=http://localhost:8089 yarn dev --port 8006
 ```
 
-Open **https://localhost:8005** → **Platform → Developer Portal**.
+Use only when working on DevPortalPage.vue without Krew linked.
 
 ## Install on cluster
 
