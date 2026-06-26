@@ -1,0 +1,50 @@
+name: Build and publish extension
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: yarn
+
+      - run: yarn install --frozen-lockfile || yarn install
+
+      - run: yarn build-pkg
+
+      - name: Prepare GitHub Pages site
+        run: |
+          mkdir -p _site/extensions/devportal/0.1.0/plugin
+          cp -r dist-pkg/devportal-0.1.0/* _site/extensions/devportal/0.1.0/plugin/
+          cp docs/README.md _site/index.md 2>/dev/null || cp README.md _site/index.md
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/deploy-pages@v4
+        id: deployment
