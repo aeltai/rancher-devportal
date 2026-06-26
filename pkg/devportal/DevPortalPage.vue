@@ -215,6 +215,7 @@ async function getRancherToken() {
 
 export default {
   name: 'DevPortalPage',
+  layout: 'plain',
 
   data() {
     return {
@@ -378,11 +379,18 @@ export default {
 
 <style lang="scss" scoped>
 .devportal-page {
-  flex: 1;
-  min-height: 0;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  /* Full viewport width — escape IndentedPanel 90% constraint in plain layout */
+  width: 111.12%;
+  margin-left: -5.56%;
+  min-height: calc(100vh - 60px);
+  height: calc(100vh - 60px);
+  max-width: none;
+  padding: 8px 12px;
   color: var(--body-text);
+  background: var(--body-bg);
 }
 
 .banner {
@@ -407,6 +415,8 @@ export default {
 .dp-panel {
   flex: 1;
   min-height: 0;
+  width: 100%;
+  max-width: none;
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border);
@@ -449,7 +459,7 @@ export default {
     margin: 0;
     font-size: 0.82em;
     color: var(--muted);
-    max-width: 520px;
+    max-width: none;
     line-height: 1.4;
   }
 
@@ -634,7 +644,7 @@ export default {
     strong { display: block; }
     .desc-line { display: block; font-weight: 400; font-size: 0.85em; color: var(--muted); margin-top: 2px; }
   }
-  .status-msg { max-width: 220px; color: var(--muted); font-size: 0.9em; }
+  .status-msg { max-width: 360px; color: var(--muted); font-size: 0.9em; }
   code { font-size: 0.92em; color: var(--muted); }
   .cr-name { font-size: 0.8em; }
 

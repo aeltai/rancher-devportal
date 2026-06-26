@@ -31,11 +31,8 @@ jobs:
 
       - name: Prepare GitHub Pages site
         run: |
-          mkdir -p _site/extensions/devportal/0.1.0/plugin
-          cp -r dist-pkg/devportal-0.1.0/* _site/extensions/devportal/0.1.0/plugin/
-          cp docs/pages/index.html _site/index.html
-          cp docs/pages/index.html _site/404.html
-          touch _site/.nojekyll
+          chmod +x scripts/build-pages-site.sh
+          ./scripts/build-pages-site.sh devportal
 
       - uses: actions/upload-pages-artifact@v3
         with:

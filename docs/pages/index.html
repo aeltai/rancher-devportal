@@ -3,23 +3,74 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Rancher Developer Portal — extension bundle</title>
-  <style>
-    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; color: #222; }
-    code { background: #f4f4f4; padding: 2px 6px; border-radius: 4px; }
-    a { color: #0969da; }
-  </style>
+  <title>Developer Portal — Rancher UI extension</title>
+  <link rel="stylesheet" href="site.css" />
 </head>
 <body>
-  <h1>Developer Portal</h1>
-  <p>Rancher UI extension bundle (CDN). The app runs <strong>inside Rancher Dashboard</strong>, not on this page.</p>
-  <h2>UIPlugin endpoint</h2>
-  <p><code>https://aeltai.github.io/rancher-devportal/extensions/devportal/0.1.0/plugin</code></p>
-  <h2>Verify bundle</h2>
-  <ul>
-    <li><a href="extensions/devportal/0.1.0/plugin/package.json">package.json</a></li>
-    <li><a href="extensions/devportal/0.1.0/plugin/devportal-0.1.0.umd.min.js">devportal-0.1.0.umd.min.js</a></li>
-  </ul>
-  <p><a href="https://github.com/aeltai/rancher-devportal">GitHub repository</a></p>
+  <header class="hero">
+    <div class="wrap">
+      <h1>Developer Portal</h1>
+      <p>Self-service Rancher environments — request namespaces, Fleet GitOps bundles, and operators from the Dashboard.</p>
+      <nav class="top">
+        <a href="docs/extension.html">Extension</a>
+        <a href="docs/architecture.html">Architecture</a>
+        <a href="docs/publishing.html">Install &amp; publish</a>
+        <a href="https://github.com/aeltai/rancher-devportal">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="note">
+      <strong>This GitHub Pages site hosts documentation and the extension JavaScript bundle.</strong>
+      The portal UI runs <em>inside Rancher Dashboard</em> after you install the UIPlugin — not on this page.
+    </div>
+
+    <section class="card">
+      <h2>Quick install (Rancher UIPlugin)</h2>
+      <p class="muted">Point Rancher at the published bundle URL:</p>
+      <pre><code>spec:
+  plugin:
+    name: devportal
+    version: "0.1.0"
+    endpoint: "https://aeltai.github.io/rancher-devportal/extensions/devportal/0.1.0/plugin"</code></pre>
+      <p class="muted">Verify the bundle is reachable:</p>
+      <ul>
+        <li><a href="extensions/devportal/0.1.0/plugin/package.json">package.json</a></li>
+        <li><a href="extensions/devportal/0.1.0/plugin/devportal-0.1.0.umd.min.js">devportal-0.1.0.umd.min.js</a></li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Documentation</h2>
+      <div class="grid">
+        <a class="doc-link" href="docs/extension.html">
+          <strong>Extension</strong>
+          <span class="muted">Package layout, build, local dev</span>
+        </a>
+        <a class="doc-link" href="docs/architecture.html">
+          <strong>Architecture</strong>
+          <span class="muted">PlatformRequest CRD and request flow</span>
+        </a>
+        <a class="doc-link" href="docs/publishing.html">
+          <strong>Publishing</strong>
+          <span class="muted">GitHub Pages CI and UIPlugin</span>
+        </a>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Related extension</h2>
+      <p>
+        <a href="https://aeltai.github.io/krew-workstation/">Krew Workstation</a>
+        — kubectl plugin terminal in the same Rancher sidebar.
+      </p>
+    </section>
+
+    <footer>
+      <a href="https://github.com/aeltai/rancher-devportal">aeltai/rancher-devportal</a>
+      · CDN root for UI extension bundle only
+    </footer>
+  </main>
 </body>
 </html>
