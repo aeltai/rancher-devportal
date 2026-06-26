@@ -1,0 +1,26 @@
+# Run devportal-backend against the krew-workstation Rancher (no second Rancher).
+# Usage: docker compose -f docker-compose.local.yml up -d --build
+
+services:
+  devportal-backend:
+    platform: linux/amd64
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "9010:3000"
+    environment:
+      - RANCHER_URL=https://rancher:443
+      - RANCHER_TOKEN=${RANCHER_TOKEN:-}
+      - PLATFORM_NAMESPACE=devportal-system
+      - KUBECONFIG=/kube/config
+      - ALLOW_SERVICE_TOKEN=true
+    volumes:
+      - ${KUBECONFIG_HOST:-~/.kube/config}:/kube/config:ro
+    networks:
+      - krew-workstation_default
+    restart: unless-stopped
+
+networks:
+  krew-workstation_default:
+    external: true

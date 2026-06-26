@@ -44,16 +44,17 @@ type PlatformRequestStatus struct {
 }
 
 type PlatformRequest struct {
-	Name        string                  `json:"name"`
-	DisplayName string                  `json:"displayName"`
-	Namespace   string                  `json:"namespace"`
-	Template    string                  `json:"template"`
-	Charts      []string                `json:"charts"`
-	Phase       string                  `json:"phase"`
-	Message     string                  `json:"message"`
-	CreatedAt   string                  `json:"createdAt"`
-	Spec        PlatformRequestSpec     `json:"-"`
-	Status      PlatformRequestStatus   `json:"-"`
+	CRName      string   `json:"crName"`
+	Name        string   `json:"name"`
+	DisplayName string   `json:"displayName"`
+	Description string   `json:"description"`
+	Namespace   string   `json:"namespace"`
+	Template    string   `json:"template"`
+	Charts      []string `json:"charts"`
+	Requester   string   `json:"requester"`
+	Phase       string   `json:"phase"`
+	Message     string   `json:"message"`
+	CreatedAt   string   `json:"createdAt"`
 }
 
 func portalNamespace() string {
@@ -120,11 +121,15 @@ func handlePortalStack(c *gin.Context) {
 
 func handlePortalListRequests(c *gin.Context) {
 	ru, _ := requestUserFromContext(c)
+	listAll := false
+	if ru != nil {
+		caps := evaluatePortalCapabilities(ru.Token, ru.User.ID, ru.AuthMode)
+		listAll = caps.ListAllRequests
+	}
 	ns := portalNamespace()
 	out, err := runKubectl("get", crPlural+"."+crGroup, "-n", ns, "-o", "json")
 	if err != nil {
-		// CRD may not exist yet — return empty list
-		c.JSON(http.StatusOK, gin.H{"requests": []PlatformRequest{}})
+		c.JSON(http.StatusOK, gin.H{"requests": []PlatformRequest{}, "listAll": listAll})
 		return
 	}
 	var list struct {
@@ -143,25 +148,33 @@ func handlePortalListRequests(c *gin.Context) {
 	}
 	var requests []PlatformRequest
 	for _, item := range list.Items {
-		if ru != nil && item.Spec.Requester != "" && item.Spec.Requester != ru.User.Username && item.Spec.Requester != ru.User.ID {
+		if !listAll && ru != nil && item.Spec.Requester != "" &&
+			item.Spec.Requester != ru.User.Username && item.Spec.Requester != ru.User.ID {
 			continue
 		}
 		phase := item.Status.Phase
 		if phase == "" {
 			phase = "Pending"
 		}
+		envName := item.Spec.Name
+		if envName == "" {
+			envName = item.Metadata.Name
+		}
 		requests = append(requests, PlatformRequest{
-			Name:        item.Spec.Name,
+			CRName:      item.Metadata.Name,
+			Name:        envName,
 			DisplayName: item.Spec.DisplayName,
-			Namespace:   "env-" + item.Spec.Name,
+			Description: item.Spec.Description,
+			Namespace:   "env-" + envName,
 			Template:    item.Spec.Template,
 			Charts:      item.Spec.Charts,
+			Requester:   item.Spec.Requester,
 			Phase:       phase,
 			Message:     item.Status.Message,
 			CreatedAt:   item.Metadata.CreationTimestamp,
 		})
 	}
-	c.JSON(http.StatusOK, gin.H{"requests": requests})
+	c.JSON(http.StatusOK, gin.H{"requests": requests, "listAll": listAll})
 }
 
 type createRequestBody struct {

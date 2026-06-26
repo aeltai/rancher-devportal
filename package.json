@@ -11,7 +11,7 @@
     }
   },
   "scripts": {
-    "dev": "NODE_ENV=dev ./node_modules/.bin/vue-cli-service serve",
+    "dev": "NODE_ENV=dev ./node_modules/.bin/vue-cli-service serve --port 8006",
     "build": "./node_modules/.bin/vue-cli-service build",
     "build-pkg": "./node_modules/@rancher/shell/scripts/build-pkg.sh devportal",
     "clean": "./node_modules/@rancher/shell/scripts/clean",

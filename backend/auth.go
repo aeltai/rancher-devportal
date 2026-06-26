@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -19,6 +20,8 @@ type RancherUser struct {
 type UserCapabilities struct {
 	CreateEnvironments bool `json:"createEnvironments"`
 	ListRequests       bool `json:"listRequests"`
+	ListAllRequests    bool `json:"listAllRequests"`
+	Admin              bool `json:"admin"`
 }
 
 type AuthMeResponse struct {
@@ -96,6 +99,43 @@ func requireAuthMiddleware() gin.HandlerFunc {
 	}
 }
 
+func isRancherAdmin(token, userID, authMode string) bool {
+	if authMode == "service" {
+		return true
+	}
+	q := url.Values{}
+	q.Set("userId", userID)
+	body, err := rancherRequestWithToken("GET", "/v3/globalRoleBindings?"+q.Encode(), token)
+	if err != nil {
+		return false
+	}
+	var result struct {
+		Data []struct {
+			GlobalRoleID string `json:"globalRoleId"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return false
+	}
+	for _, b := range result.Data {
+		id := strings.ToLower(strings.TrimSpace(b.GlobalRoleID))
+		if id == "admin" || strings.HasSuffix(id, "-admin") {
+			return true
+		}
+	}
+	return false
+}
+
+func evaluatePortalCapabilities(token, userID, authMode string) UserCapabilities {
+	admin := isRancherAdmin(token, userID, authMode)
+	return UserCapabilities{
+		CreateEnvironments: true,
+		ListRequests:       true,
+		ListAllRequests:    admin,
+		Admin:              admin,
+	}
+}
+
 func handleAuthMe(c *gin.Context) {
 	ru, err := loadRequestUser(c)
 	if err != nil {
@@ -103,12 +143,9 @@ func handleAuthMe(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, AuthMeResponse{
-		User:     ru.User,
-		AuthMode: ru.AuthMode,
-		Capabilities: UserCapabilities{
-			CreateEnvironments: true,
-			ListRequests:       true,
-		},
+		User:         ru.User,
+		AuthMode:     ru.AuthMode,
+		Capabilities: evaluatePortalCapabilities(ru.Token, ru.User.ID, ru.AuthMode),
 	})
 }
 

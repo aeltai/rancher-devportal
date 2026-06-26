@@ -1,135 +1,183 @@
 <template>
-  <div class="devportal" :class="themeClass">
-    <header class="dp-hero">
-      <div class="dp-hero-text">
-        <h1>Developer Portal</h1>
-        <p>Self-service environments — virtual cluster, Fleet GitOps, and operators you pick.</p>
-        <div v-if="authUser" class="dp-hero-meta">
-          Signed in as <strong>{{ authUser.displayName || authUser.username }}</strong>
-          <span v-if="stackInfo.recommended" class="dp-stack-badge">{{ stackInfo.recommended }}</span>
+  <div class="devportal-page">
+    <div v-if="error" class="banner error">
+      {{ error }}
+      <button class="dismiss" type="button" @click="error = ''">&times;</button>
+    </div>
+    <div v-if="message" class="banner success">
+      {{ message }}
+      <button class="dismiss" type="button" @click="message = ''">&times;</button>
+    </div>
+    <div v-if="loading" class="loading-bar" />
+
+    <div class="dp-panel">
+      <header class="dp-header">
+        <div class="dp-header-left">
+          <i class="icon icon-compass dp-header-icon" aria-hidden="true" />
+          <div class="dp-header-text">
+            <h1>Developer Portal</h1>
+            <p>Self-service environments — namespaces, Fleet GitOps, and operators.</p>
+            <div v-if="authUser" class="dp-meta">
+              <span class="dp-badge user">{{ authUser.displayName || authUser.username }}</span>
+              <span v-if="isAdmin" class="dp-badge admin">Administrator</span>
+              <span v-if="stackInfo.recommended" class="dp-badge muted">{{ stackInfo.recommended }}</span>
+            </div>
+          </div>
         </div>
-      </div>
-      <button class="btn role-primary" @click="startWizard">+ Request environment</button>
-    </header>
+        <button class="btn role-primary" type="button" @click="startWizard">
+          <i class="icon icon-circle-plus" /> Request environment
+        </button>
+      </header>
 
-    <div v-if="error" class="banner error">{{ error }} <button class="dismiss" @click="error = ''">&times;</button></div>
-    <div v-if="message" class="banner success">{{ message }} <button class="dismiss" @click="message = ''">&times;</button></div>
+      <div v-if="showWizard" class="dp-wizard">
+        <div class="dp-wizard-header">
+          <h2>New environment</h2>
+          <button class="btn role-tertiary xs" type="button" @click="cancelWizard">
+            <i class="icon icon-close" />
+          </button>
+        </div>
+        <div class="dp-steps">
+          <span :class="{ active: wizardStep >= 1 }">1. Name</span>
+          <span :class="{ active: wizardStep >= 2 }">2. Template</span>
+          <span :class="{ active: wizardStep >= 3 }">3. Charts</span>
+          <span :class="{ active: wizardStep >= 4 }">4. Review</span>
+        </div>
 
-    <div v-if="showWizard" class="dp-wizard">
-      <div class="dp-wizard-header">
-        <h2>New environment</h2>
-        <button class="btn role-tertiary xs" @click="cancelWizard">&times;</button>
-      </div>
-      <div class="dp-steps">
-        <span :class="{ active: wizardStep >= 1 }">1. Name</span>
-        <span :class="{ active: wizardStep >= 2 }">2. Template</span>
-        <span :class="{ active: wizardStep >= 3 }">3. Charts</span>
-        <span :class="{ active: wizardStep >= 4 }">4. Review</span>
-      </div>
+        <div v-if="wizardStep === 1" class="dp-step">
+          <label class="label">Environment name</label>
+          <input v-model="form.name" class="input-sm" type="text" placeholder="my-team-dev" @input="slugifyName" />
+          <p class="hint">Lowercase, numbers, hyphens. Namespace: <code>env-{{ form.slug || '…' }}</code></p>
+          <label class="label">Description</label>
+          <input v-model="form.description" class="input-sm" type="text" placeholder="Optional" />
+        </div>
 
-      <div v-if="wizardStep === 1" class="dp-step">
-        <label>Environment name</label>
-        <input v-model="form.name" type="text" placeholder="my-team-dev" @input="slugifyName" />
-        <p class="hint">Lowercase, numbers, hyphens. Creates namespace <code>env-{{ form.slug || '…' }}</code></p>
-        <label>Description</label>
-        <input v-model="form.description" type="text" placeholder="Optional" />
-      </div>
+        <div v-if="wizardStep === 2" class="dp-step">
+          <p class="hint">Cluster template — guardrails for the provisioned environment.</p>
+          <div class="dp-card-grid">
+            <button
+              v-for="t in templates"
+              :key="t.id"
+              type="button"
+              :class="['dp-card', { selected: form.template === t.id }]"
+              @click="form.template = t.id"
+            >
+              <strong>{{ t.label }}</strong>
+              <span>{{ t.description }}</span>
+            </button>
+          </div>
+        </div>
 
-      <div v-if="wizardStep === 2" class="dp-step">
-        <p class="hint">Cluster template — guardrails for the provisioned environment.</p>
-        <div class="dp-template-grid">
-          <button
-            v-for="t in templates"
-            :key="t.id"
-            :class="['dp-template-card', { selected: form.template === t.id }]"
-            @click="form.template = t.id"
-          >
-            <strong>{{ t.label }}</strong>
-            <span>{{ t.description }}</span>
+        <div v-if="wizardStep === 3" class="dp-step">
+          <p class="hint">Helm charts and operators to install via Fleet.</p>
+          <div class="dp-card-grid">
+            <label
+              v-for="c in catalog"
+              :key="c.id"
+              :class="['dp-card', 'dp-card-check', { selected: form.charts.includes(c.id) }]"
+            >
+              <input v-model="form.charts" type="checkbox" :value="c.id" />
+              <strong>{{ c.name }}</strong>
+              <span class="cat">{{ c.category }}</span>
+              <span class="desc">{{ c.description }}</span>
+            </label>
+          </div>
+        </div>
+
+        <div v-if="wizardStep === 4" class="dp-step dp-review">
+          <dl>
+            <dt>Name</dt><dd>{{ form.name }}</dd>
+            <dt>Template</dt><dd>{{ templateLabel }}</dd>
+            <dt>Charts</dt>
+            <dd>
+              <span v-if="!form.charts.length" class="muted">None</span>
+              <span v-for="id in form.charts" :key="id" class="dp-chip">{{ chartName(id) }}</span>
+            </dd>
+          </dl>
+        </div>
+
+        <div class="dp-wizard-actions">
+          <button v-if="wizardStep > 1" class="btn role-secondary" type="button" @click="wizardStep--">Back</button>
+          <button v-if="wizardStep < 4" class="btn role-primary" type="button" :disabled="!canNext" @click="wizardStep++">Next</button>
+          <button v-if="wizardStep === 4" class="btn role-primary" type="button" :disabled="submitting" @click="submitRequest">
+            {{ submitting ? 'Submitting…' : 'Submit request' }}
           </button>
         </div>
       </div>
 
-      <div v-if="wizardStep === 3" class="dp-step">
-        <p class="hint">Select Helm charts / operators to install via Fleet on your environment.</p>
-        <div class="dp-catalog-grid">
-          <label
-            v-for="c in catalog"
-            :key="c.id"
-            :class="['dp-catalog-card', { selected: form.charts.includes(c.id) }]"
-          >
-            <input v-model="form.charts" type="checkbox" :value="c.id" />
-            <strong>{{ c.name }}</strong>
-            <span class="cat">{{ c.category }}</span>
-            <span class="desc">{{ c.description }}</span>
-          </label>
+      <section class="dp-section">
+        <div class="dp-section-head">
+          <h2>
+            <i class="icon icon-namespace" />
+            {{ isAdmin ? 'All platform requests' : 'My environments' }}
+          </h2>
+          <button class="btn role-tertiary xs" type="button" :disabled="loading" @click="loadRequests">
+            <i class="icon icon-refresh" /> Refresh
+          </button>
         </div>
-      </div>
+        <table v-if="requests.length" class="dp-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th v-if="isAdmin">Requester</th>
+              <th>Phase</th>
+              <th v-if="isAdmin">Message</th>
+              <th>Namespace</th>
+              <th v-if="isAdmin">Template</th>
+              <th v-if="isAdmin">CR name</th>
+              <th>Charts</th>
+              <th>Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="r in requests" :key="r.crName || r.name">
+              <td class="name">
+                <strong>{{ r.displayName || r.name }}</strong>
+                <div v-if="r.description" class="desc">{{ r.description }}</div>
+              </td>
+              <td v-if="isAdmin"><code>{{ r.requester || '—' }}</code></td>
+              <td><span :class="['phase', r.phase]">{{ r.phase || '—' }}</span></td>
+              <td v-if="isAdmin" class="status-msg">{{ r.message || '—' }}</td>
+              <td><code>{{ r.namespace || '—' }}</code></td>
+              <td v-if="isAdmin"><code>{{ r.template || '—' }}</code></td>
+              <td v-if="isAdmin"><code>{{ r.crName || r.name || '—' }}</code></td>
+              <td>{{ (r.charts || []).join(', ') || '—' }}</td>
+              <td>{{ formatDate(r.createdAt || r.created) }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-else-if="!loading" class="empty">
+          {{ isAdmin ? 'No platform requests yet.' : 'No environments yet. Use ' }}
+          <strong v-if="!isAdmin">Request environment</strong>
+          {{ isAdmin ? '' : ' to provision one.' }}
+        </p>
+      </section>
 
-      <div v-if="wizardStep === 4" class="dp-step dp-review">
-        <dl>
-          <dt>Name</dt><dd>{{ form.name }}</dd>
-          <dt>Template</dt><dd>{{ templateLabel }}</dd>
-          <dt>Charts</dt>
-          <dd>
-            <span v-if="!form.charts.length" class="muted">None</span>
-            <span v-for="id in form.charts" :key="id" class="chip">{{ chartName(id) }}</span>
-          </dd>
-        </dl>
-      </div>
-
-      <div class="dp-wizard-actions">
-        <button v-if="wizardStep > 1" class="btn role-secondary" @click="wizardStep--">Back</button>
-        <button v-if="wizardStep < 4" class="btn role-primary" :disabled="!canNext" @click="wizardStep++">Next</button>
-        <button v-if="wizardStep === 4" class="btn role-primary" :disabled="submitting" @click="submitRequest">
-          {{ submitting ? 'Submitting…' : 'Submit request' }}
-        </button>
-      </div>
+      <section v-if="stackInfo.components && stackInfo.components.length" class="dp-section dp-stack">
+        <h2><i class="icon icon-fleet" /> Recommended stack</h2>
+        <p v-if="stackInfo.summary" class="hint">{{ stackInfo.summary }}</p>
+        <div class="dp-stack-grid">
+          <div v-for="item in stackInfo.components" :key="item.name" class="dp-stack-card">
+            <strong>{{ item.name }}</strong>
+            <p>{{ item.role }}</p>
+          </div>
+        </div>
+      </section>
     </div>
-
-    <section class="dp-section">
-      <h2>My environments</h2>
-      <button class="btn role-tertiary xs refresh-btn" :disabled="loading" @click="loadRequests">Refresh</button>
-      <table v-if="requests.length" class="dp-table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Phase</th>
-            <th>Namespace</th>
-            <th>Fleet repo</th>
-            <th>Charts</th>
-            <th>Created</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="r in requests" :key="r.name">
-            <td class="name">{{ r.displayName || r.name }}</td>
-            <td><span :class="['phase', r.phase]">{{ r.phase }}</span></td>
-            <td><code>{{ r.namespace || '—' }}</code></td>
-            <td><code>{{ r.fleetGitRepo || '—' }}</code></td>
-            <td>{{ (r.charts || []).join(', ') || '—' }}</td>
-            <td>{{ r.created || '—' }}</td>
-          </tr>
-        </tbody>
-      </table>
-      <p v-else-if="!loading" class="empty">No environments yet — click <strong>Request environment</strong> to start.</p>
-    </section>
-
-    <section class="dp-section dp-stack">
-      <h2>Recommended stack</h2>
-      <div class="dp-stack-grid">
-        <div v-for="item in stackInfo.components" :key="item.name" class="dp-stack-card">
-          <strong>{{ item.name }}</strong>
-          <p>{{ item.role }}</p>
-        </div>
-      </div>
-      <p class="hint">{{ stackInfo.summary }}</p>
-    </section>
   </div>
 </template>
 
 <script>
-const BACKEND_URL = 'http://localhost:9010';
+function devportalBackendUrl() {
+  if (typeof window !== 'undefined') {
+    const { hostname, port } = window.location;
+    if (hostname === 'localhost' && port === '8005') {
+      return '/devportal-api';
+    }
+  }
+  return 'http://localhost:9010';
+}
+
+const BACKEND_URL = devportalBackendUrl();
 
 let _tokenCache = { token: null, expires: 0 };
 async function getRancherToken() {
@@ -167,7 +215,6 @@ async function getRancherToken() {
 
 export default {
   name: 'DevPortalPage',
-  layout: 'plain',
 
   data() {
     return {
@@ -176,6 +223,7 @@ export default {
       error: '',
       message: '',
       authUser: null,
+      isAdmin: false,
       catalog: [],
       templates: [],
       requests: [],
@@ -193,9 +241,6 @@ export default {
   },
 
   computed: {
-    themeClass() {
-      return 'theme-dark';
-    },
     canNext() {
       if (this.wizardStep === 1) return /^[a-z0-9]([a-z0-9-]{1,28}[a-z0-9])?$/.test(this.form.slug);
       if (this.wizardStep === 2) return !!this.form.template;
@@ -217,12 +262,22 @@ export default {
         const token = await getRancherToken();
         if (token) headers.Authorization = `Bearer ${token}`;
       } catch (_) {}
-      const resp = await fetch(`${BACKEND_URL}${path}`, {
-        method,
-        headers,
-        body: body ? JSON.stringify(body) : undefined,
-      });
-      const data = await resp.json();
+      let resp;
+      try {
+        resp = await fetch(`${BACKEND_URL}${path}`, {
+          method,
+          headers,
+          body: body ? JSON.stringify(body) : undefined,
+        });
+      } catch (e) {
+        throw new Error(`Backend unreachable — ${e.message}. Is devportal-backend running on :9010?`);
+      }
+      let data;
+      try {
+        data = await resp.json();
+      } catch (_) {
+        throw new Error(`Invalid response from backend (${resp.status})`);
+      }
       if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
       return data;
     },
@@ -231,6 +286,7 @@ export default {
       try {
         const data = await this.api('GET', '/api/auth/me');
         this.authUser = data.user;
+        this.isAdmin = !!(data.capabilities && (data.capabilities.admin || data.capabilities.listAllRequests));
       } catch (_) {}
     },
 
@@ -257,6 +313,7 @@ export default {
       try {
         const data = await this.api('GET', '/api/portal/requests');
         this.requests = data.requests || [];
+        if (data.listAll) this.isAdmin = true;
       } catch (e) {
         this.error = e.message;
       } finally {
@@ -286,6 +343,15 @@ export default {
       return this.catalog.find((c) => c.id === id)?.name || id;
     },
 
+    formatDate(iso) {
+      if (!iso) return '—';
+      try {
+        return new Date(iso).toLocaleString();
+      } catch (_) {
+        return iso;
+      }
+    },
+
     async submitRequest() {
       this.submitting = true;
       this.error = '';
@@ -311,163 +377,293 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-.devportal {
-  padding: 16px 20px;
-  max-width: 1200px;
-  margin: 0 auto;
-  color: #e0e0e0;
-  background: #0d0d0d;
-  min-height: calc(100vh - 60px);
+.devportal-page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  color: var(--body-text);
 }
 
-.dp-hero {
+.banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  font-size: 0.8em;
+  &.error { background: var(--error-banner-bg, rgba(204, 74, 74, 0.15)); color: var(--error, #c00); }
+  &.success { background: var(--success-banner-bg, rgba(63, 138, 63, 0.15)); color: var(--success, #3f8a3f); }
+  .dismiss { background: none; border: none; cursor: pointer; font-size: 1.1em; padding: 0 4px; opacity: 0.7; }
+}
+
+.loading-bar {
+  height: 2px;
+  background: var(--primary);
+  margin-bottom: 6px;
+}
+
+.dp-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--body-bg);
+  overflow: auto;
+}
+
+.dp-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
-  margin-bottom: 24px;
-  padding: 20px 24px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #1a237e 0%, #283593 40%, #1b5e20 100%);
-  h1 { margin: 0 0 8px; font-size: 1.6em; color: #fff; }
-  p { margin: 0; opacity: 0.9; max-width: 520px; }
-  .dp-hero-meta { margin-top: 12px; font-size: 0.85em; opacity: 0.85; }
-  .dp-stack-badge {
-    margin-left: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--sortable-table-header-bg, var(--box-bg));
+
+  .dp-header-left {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    min-width: 0;
+  }
+
+  .dp-header-icon {
+    font-size: 1.75em;
+    color: var(--primary);
+    margin-top: 2px;
+    flex-shrink: 0;
+  }
+
+  h1 {
+    margin: 0 0 4px;
+    font-size: 1.05em;
+    font-weight: 600;
+    color: var(--body-text);
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.82em;
+    color: var(--muted);
+    max-width: 520px;
+    line-height: 1.4;
+  }
+
+  .dp-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .dp-badge {
     padding: 2px 8px;
-    border-radius: 4px;
-    background: rgba(255,255,255,0.15);
-    font-size: 0.85em;
+    border-radius: 3px;
+    font-size: 0.72em;
+    font-weight: 600;
+    &.user {
+      background: var(--primary-banner-bg, rgba(0, 100, 200, 0.12));
+      color: var(--primary);
+    }
+    &.admin {
+      background: rgba(156, 39, 176, 0.12);
+      color: #9c27b0;
+    }
+    &.muted {
+      background: var(--default-light-bg, rgba(0, 0, 0, 0.05));
+      color: var(--muted);
+      font-weight: 500;
+    }
   }
 }
 
-.banner {
-  padding: 8px 12px;
-  border-radius: 6px;
-  margin-bottom: 12px;
-  font-size: 0.9em;
-  &.error { background: #fdecea; color: #b71c1c; }
-  &.success { background: #e8f5e9; color: #1b5e20; }
-  .dismiss { background: none; border: none; cursor: pointer; float: right; }
-}
-
 .dp-wizard {
-  background: #1a1a1a;
-  border: 1px solid #333;
-  border-radius: 10px;
-  padding: 20px;
-  margin-bottom: 24px;
+  margin: 12px 16px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--sortable-table-row-bg, var(--body-bg));
+
   .dp-wizard-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    h2 { margin: 0; font-size: 1.1em; color: #90caf9; }
+    h2 { margin: 0; font-size: 0.95em; font-weight: 600; }
   }
+
   .dp-steps {
     display: flex;
-    gap: 16px;
-    margin: 16px 0;
-    font-size: 0.8em;
-    color: #666;
-    span.active { color: #4caf50; font-weight: 600; }
+    gap: 12px;
+    margin: 12px 0 16px;
+    font-size: 0.75em;
+    color: var(--muted);
+    span.active { color: var(--primary); font-weight: 600; }
   }
-  label { display: block; margin: 12px 0 4px; font-size: 0.85em; color: #aaa; }
-  input[type="text"] {
+
+  .label {
+    display: block;
+    margin: 10px 0 4px;
+    font-size: 0.78em;
+    color: var(--input-label, var(--muted));
+  }
+
+  .input-sm {
     width: 100%;
-    max-width: 400px;
-    padding: 8px 10px;
-    border: 1px solid #444;
-    border-radius: 6px;
-    background: #252525;
-    color: #eee;
+    max-width: 360px;
+    padding: 6px 8px;
+    font-size: 0.85em;
+    border: 1px solid var(--input-border, var(--border));
+    border-radius: 4px;
+    background: var(--input-bg);
+    color: var(--input-text);
   }
-  .hint { font-size: 0.8em; color: #888; margin: 8px 0; code { color: #81c784; } }
+
+  .hint {
+    font-size: 0.78em;
+    color: var(--muted);
+    margin: 6px 0;
+    code { font-size: 0.95em; }
+  }
+
   .dp-wizard-actions {
     display: flex;
     gap: 8px;
-    margin-top: 20px;
-    padding-top: 16px;
-    border-top: 1px solid #333;
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
   }
 }
 
-.dp-template-grid, .dp-catalog-grid {
+.dp-card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 12px;
-  margin-top: 12px;
+  gap: 10px;
+  margin-top: 8px;
 }
 
-.dp-template-card, .dp-catalog-card {
+.dp-card {
   text-align: left;
-  padding: 14px;
-  border: 2px solid #333;
-  border-radius: 8px;
-  background: #252525;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--body-bg);
   cursor: pointer;
-  color: #ccc;
-  strong { display: block; color: #90caf9; margin-bottom: 4px; }
-  span { font-size: 0.8em; display: block; }
-  &.selected { border-color: #4caf50; background: rgba(76,175,80,0.08); }
-  input { margin-right: 8px; }
-  .cat { color: #ffb74d; font-size: 0.75em; text-transform: uppercase; }
-  .desc { color: #888; margin-top: 4px; }
+  color: var(--body-text);
+  transition: border-color 0.15s, background 0.15s;
+
+  strong { display: block; font-size: 0.88em; margin-bottom: 4px; }
+  span { font-size: 0.78em; color: var(--muted); display: block; line-height: 1.35; }
+
+  &:hover { border-color: var(--primary); background: var(--sortable-table-hover-bg, var(--body-bg)); }
+  &.selected {
+    border-color: var(--primary);
+    background: var(--sortable-table-selected-bg, rgba(0, 100, 200, 0.06));
+  }
+
+  &.dp-card-check input { margin-right: 6px; vertical-align: middle; }
+  .cat { text-transform: uppercase; font-size: 0.68em; letter-spacing: 0.03em; margin-top: 4px; color: var(--primary); }
 }
 
 .dp-review dl {
   display: grid;
-  grid-template-columns: 120px 1fr;
-  gap: 8px 16px;
-  dt { color: #888; }
-  .chip {
+  grid-template-columns: 100px 1fr;
+  gap: 6px 12px;
+  font-size: 0.85em;
+  dt { color: var(--muted); }
+  .dp-chip {
     display: inline-block;
     margin: 2px 4px 2px 0;
     padding: 2px 8px;
-    border-radius: 4px;
-    background: #333;
-    font-size: 0.85em;
+    border-radius: 3px;
+    background: var(--tag-bg, var(--default-light-bg));
+    font-size: 0.9em;
   }
+  .muted { color: var(--muted); }
 }
 
 .dp-section {
-  margin-bottom: 28px;
-  position: relative;
-  h2 { font-size: 1em; color: #4caf50; margin-bottom: 12px; }
-  .refresh-btn { position: absolute; top: 0; right: 0; }
-  .empty { color: #888; font-size: 0.9em; }
+  padding: 12px 16px 16px;
+  border-top: 1px solid var(--border);
+
+  .dp-section-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+
+  h2 {
+    margin: 0;
+    font-size: 0.9em;
+    font-weight: 600;
+    color: var(--body-text);
+    .icon { margin-right: 6px; color: var(--muted); font-size: 0.95em; }
+  }
+
+  .empty { font-size: 0.82em; color: var(--muted); margin: 0; }
+  .admin-hint { margin: 0 0 10px; }
 }
 
 .dp-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.85em;
-  th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #333; }
-  th { color: #4caf50; background: #252525; }
-  .name { font-weight: 600; color: #64b5f6; }
-  code { font-size: 0.9em; color: #81c784; }
+  font-size: 0.82em;
+
+  th, td {
+    padding: 8px 10px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+
+  th {
+    color: var(--sortable-table-group-label, var(--muted));
+    background: var(--sortable-table-header-bg, var(--box-bg));
+    font-weight: 600;
+    font-size: 0.78em;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+
+  tbody tr:hover { background: var(--sortable-table-hover-bg); }
+  .name {
+    font-weight: 600;
+    strong { display: block; }
+    .desc-line { display: block; font-weight: 400; font-size: 0.85em; color: var(--muted); margin-top: 2px; }
+  }
+  .status-msg { max-width: 220px; color: var(--muted); font-size: 0.9em; }
+  code { font-size: 0.92em; color: var(--muted); }
+  .cr-name { font-size: 0.8em; }
+
   .phase {
+    display: inline-block;
     padding: 2px 8px;
-    border-radius: 4px;
+    border-radius: 3px;
     font-size: 0.85em;
     font-weight: 600;
-    &.Ready { background: #2e7d32; color: #a5d6a7; }
-    &.Provisioning { background: #1565c0; color: #90caf9; }
-    &.Failed { background: #c62828; color: #ffcdd2; }
-    &.Pending { background: #555; color: #ccc; }
+    &.Ready { background: rgba(63, 138, 63, 0.15); color: var(--success, #3f8a3f); }
+    &.Provisioning { background: rgba(0, 100, 200, 0.12); color: var(--primary); }
+    &.Failed { background: rgba(204, 74, 74, 0.15); color: var(--error, #c00); }
+    &.Pending { background: var(--default-light-bg); color: var(--muted); }
   }
 }
 
 .dp-stack-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+
   .dp-stack-card {
-    padding: 12px;
-    border-radius: 8px;
-    border: 1px solid #333;
-    background: #1a1a1a;
-    strong { color: #90caf9; }
-    p { margin: 6px 0 0; font-size: 0.8em; color: #888; }
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--body-bg);
+    strong { font-size: 0.85em; display: block; }
+    p { margin: 4px 0 0; font-size: 0.78em; color: var(--muted); line-height: 1.35; }
   }
 }
 </style>
