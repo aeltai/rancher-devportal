@@ -1,6 +1,6 @@
 const BLANK_CLUSTER = '_';
 
-export function init($plugin: any, store: any) {
+export function init($plugin, store) {
   const PRODUCT = 'platform';
   const PORTAL_PAGE = 'portal';
 
