@@ -7,7 +7,7 @@ export function init($plugin, store) {
   const { product, basicType, virtualType } = $plugin.DSL(store, PRODUCT);
 
   product({
-    icon: 'compass',
+    icon: 'apps',
     label: 'Developer Portal',
     inStore: 'management',
     weight: 90,
@@ -24,7 +24,7 @@ export function init($plugin, store) {
       name: `${PRODUCT}-c-cluster-${PORTAL_PAGE}`,
       params: { product: PRODUCT, cluster: BLANK_CLUSTER },
     },
-    icon: 'compass',
+    icon: 'apps',
   });
 
   basicType([PORTAL_PAGE]);

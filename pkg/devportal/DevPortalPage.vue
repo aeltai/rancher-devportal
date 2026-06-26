@@ -13,7 +13,7 @@
     <div class="dp-panel">
       <header class="dp-header">
         <div class="dp-header-left">
-          <i class="icon icon-compass dp-header-icon" aria-hidden="true" />
+          <i class="icon icon-apps dp-header-icon" aria-hidden="true" />
           <div class="dp-header-text">
             <h1>Developer Portal</h1>
             <p>Self-service environments — namespaces, Fleet GitOps, and operators.</p>
