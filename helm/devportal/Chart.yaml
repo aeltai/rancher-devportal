@@ -1,0 +1,24 @@
+annotations:
+  catalog.cattle.io/namespace: cattle-ui-plugin-system
+  catalog.cattle.io/os: linux
+  catalog.cattle.io/scope: management
+  catalog.cattle.io/ui-component: plugins
+  catalog.cattle.io/kube-version: ">= 1.16.0-0"
+  catalog.cattle.io/rancher-version: ">= 2.10.0-0"
+  catalog.cattle.io/ui-extensions-version: ">= 3.0.0 < 4.0.0"
+apiVersion: v2
+name: devportal
+description: Developer Portal — self-service environments for Rancher Dashboard
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - devportal
+  - fleet
+  - rancher
+  - platform
+home: https://github.com/aeltai/rancher-devportal
+sources:
+  - https://github.com/aeltai/rancher-devportal
+maintainers:
+  - name: aeltai

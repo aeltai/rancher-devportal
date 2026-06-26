@@ -1,0 +1,8 @@
+node_modules/
+dist/
+dist-pkg/
+.env
+.shell/
+*.log
+.DS_Store
+backend/devportal-backend

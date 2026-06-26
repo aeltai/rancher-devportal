@@ -1,0 +1,34 @@
+services:
+  rancher:
+    image: rancher/rancher:latest
+    privileged: true
+    ports:
+      - "8090:80"
+      - "8450:443"
+    volumes:
+      - rancher-data:/var/lib/rancher
+    environment:
+      - CATTLE_BOOTSTRAP_PASSWORD=admin
+    command:
+      - --no-cacerts
+
+  devportal-backend:
+    platform: linux/amd64
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "9010:3000"
+    environment:
+      - RANCHER_URL=https://rancher:443
+      - RANCHER_TOKEN=${RANCHER_TOKEN:-}
+      - PLATFORM_NAMESPACE=devportal-system
+      - KUBECONFIG=/kube/config
+    volumes:
+      - ${KUBECONFIG_HOST:-~/.kube/config}:/kube/config:ro
+    depends_on:
+      - rancher
+    restart: unless-stopped
+
+volumes:
+  rancher-data:

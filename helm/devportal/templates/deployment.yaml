@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "devportal.fullname" . }}
+  labels:
+    {{- include "devportal.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "devportal.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "devportal.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "devportal.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          env:
+            - name: RANCHER_URL
+              value: {{ .Values.rancher.url | quote }}
+            {{- if .Values.rancher.existingSecret.name }}
+            - name: RANCHER_PUBLIC_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.rancher.existingSecret.name | quote }}
+                  key: {{ .Values.rancher.existingSecret.publicHostKey | default "publicHost" | quote }}
+                  optional: true
+            - name: RANCHER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.rancher.existingSecret.name | quote }}
+                  key: {{ .Values.rancher.existingSecret.tokenKey | default "token" | quote }}
+                  optional: true
+            {{- else }}
+            - name: RANCHER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "devportal.fullname" . }}-rancher
+                  key: token
+                  optional: true
+            {{- if .Values.rancher.publicHost }}
+            - name: RANCHER_PUBLIC_HOST
+              value: {{ .Values.rancher.publicHost | quote }}
+            {{- end }}
+            {{- end }}
+            - name: KREW_ROOT
+              value: /opt/krew
+            - name: HOME
+              value: /opt/devportal
+            - name: PORT
+              value: "3000"
+          {{- if .Values.persistence.enabled }}
+          volumeMounts:
+            - name: krew-data
+              mountPath: /opt/krew
+          {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- if .Values.persistence.enabled }}
+      volumes:
+        - name: krew-data
+          persistentVolumeClaim:
+            claimName: {{ include "devportal.fullname" . }}-krew
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

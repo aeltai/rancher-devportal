@@ -1,0 +1,21 @@
+{{- if .Values.uiPlugin.enabled }}
+apiVersion: catalog.cattle.io/v1
+kind: UIPlugin
+metadata:
+  name: {{ include "devportal.fullname" . }}
+  namespace: {{ .Values.uiPlugin.namespace | default .Release.Namespace }}
+  labels:
+    {{- include "devportal.labels" . | nindent 4 }}
+spec:
+  plugin:
+    # Must match extension plugin/package.json "name" for sidebar to show
+    name: {{ .Values.uiPlugin.pluginName | default "krew" }}
+    version: {{ .Values.uiPlugin.version | default .Chart.AppVersion | quote }}
+    endpoint: {{ .Values.uiPlugin.endpoint | quote }}
+    noCache: {{ .Values.uiPlugin.noCache }}
+    noAuth: {{ .Values.uiPlugin.noAuth }}
+    metadata:
+      {{- with .Values.uiPlugin.metadata }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+{{- end }}

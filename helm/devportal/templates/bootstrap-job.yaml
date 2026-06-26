@@ -1,0 +1,63 @@
+{{- if and .Values.bootstrap.enabled (or .Values.catalog.url .Values.catalog.gitRepo) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "devportal.fullname" . }}-bootstrap-manifest
+  labels:
+    {{- include "devportal.labels" . | nindent 4 }}
+data:
+  clusterrepo.yaml: |
+    apiVersion: catalog.cattle.io/v1
+    kind: ClusterRepo
+    metadata:
+      name: {{ .Values.catalog.name | default "devportal" }}
+    spec:
+      {{- if .Values.catalog.url }}
+      url: {{ .Values.catalog.url | quote }}
+      {{- end }}
+      {{- if .Values.catalog.gitRepo }}
+      gitRepo: {{ .Values.catalog.gitRepo | quote }}
+      gitBranch: {{ .Values.catalog.gitBranch | default "main" | quote }}
+      {{- end }}
+      enabled: true
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "devportal.fullname" . }}-bootstrap
+  labels:
+    {{- include "devportal.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        {{- include "devportal.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: bootstrap
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "devportal.fullname" . }}-bootstrap
+      containers:
+        - name: bootstrap
+          image: {{ .Values.bootstrap.image.repository }}:{{ .Values.bootstrap.image.tag }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              kubectl apply -f /manifests/clusterrepo.yaml
+              echo "ClusterRepo created successfully"
+          volumeMounts:
+            - name: manifests
+              mountPath: /manifests
+              readOnly: true
+      volumes:
+        - name: manifests
+          configMap:
+            name: {{ include "devportal.fullname" . }}-bootstrap-manifest
+{{- end }}

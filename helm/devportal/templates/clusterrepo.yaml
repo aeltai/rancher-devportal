@@ -1,0 +1,20 @@
+{{- if .Values.catalog.createClusterRepo }}
+apiVersion: catalog.cattle.io/v1
+kind: ClusterRepo
+metadata:
+  name: {{ .Values.catalog.name | default "devportal" }}
+  labels:
+    {{- include "devportal.labels" . | nindent 4 }}
+spec:
+  {{- if .Values.catalog.url }}
+  url: {{ .Values.catalog.url | quote }}
+  {{- end }}
+  {{- if .Values.catalog.gitRepo }}
+  gitRepo: {{ .Values.catalog.gitRepo | quote }}
+  gitBranch: {{ .Values.catalog.gitBranch | default "main" | quote }}
+  {{- end }}
+  {{- if .Values.catalog.refreshInterval }}
+  refreshInterval: {{ .Values.catalog.refreshInterval }}
+  {{- end }}
+  enabled: true
+{{- end }}
