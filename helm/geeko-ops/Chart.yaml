@@ -1,0 +1,22 @@
+apiVersion: v2
+name: geeko-ops
+description: Geeko-Ops — full stack (backend, UI extension, operator, catalog)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - geeko-ops
+  - rancher
+  - devportal
+  - fleet
+maintainers:
+  - name: aeltai
+dependencies:
+  - name: devportal
+    version: 0.1.0
+    repository: "file://../devportal"
+    condition: devportal.enabled
+  - name: operator
+    version: 0.1.0
+    repository: "file://../operator"
+    condition: operator.enabled

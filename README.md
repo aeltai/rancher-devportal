@@ -46,59 +46,66 @@ Works alongside [Krew Workstation](https://github.com/aeltai/krew-workstation) i
 
 ## Quick install (cluster)
 
-### Prerequisites
-
-- Rancher **2.10+** with UI extensions enabled
-- Kubernetes cluster with `kubectl` access
-- A Git repo for Fleet (Gitea, GitHub, etc.)
-- (Optional) `platform-operator` for automated Git push + reconciliation
-
-### 1. Install CRD
+### Full stack (recommended)
 
 ```bash
-kubectl apply -f deploy/crd/platformrequest.yaml
-```
+cd helm/geeko-ops && helm dependency update
 
-### 2. Install backend + UI plugin (Helm)
-
-```bash
-helm upgrade --install geeko-ops ./helm/devportal \
+helm upgrade --install geeko-ops . \
   --namespace devportal-system \
   --create-namespace \
-  --set rancher.url=https://rancher.cattle-system.svc \
-  --set rancher.token="token-xxxxx:yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy" \
-  --set uiPlugin.endpoint="https://aeltai.github.io/rancher-devportal/extensions/devportal/0.1.0/plugin"
+  --set devportal.rancher.token="token-xxxxx:yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy" \
+  --set devportal.rancher.publicHost="rancher.example.com" \
+  --set devportal.uiPlugin.endpoint="https://aeltai.github.io/rancher-devportal/extensions/devportal/0.1.0/plugin" \
+  --set devportal.image.tag=v0.1.0 \
+  --set operator.image.tag=v0.1.0
 ```
 
-Or apply the UIPlugin manifest directly if the backend is already running:
+Installs **backend**, **UIPlugin**, **platform-config** ConfigMap, **PlatformRequest CRD**, and **platform-operator**.
+
+Git credentials for Fleet (create before requesting GitOps offerings):
 
 ```bash
-kubectl apply -f deploy/uiplugin.yaml   # adjust endpoint in file first
-```
-
-### 3. Seed platform catalog
-
-```bash
-kubectl create namespace devportal-system --dry-run=client -o yaml | kubectl apply -f -
-
-kubectl create configmap platform-config \
-  --from-file=platform.yaml=config/platform.yaml \
+kubectl create secret generic platform-git-credentials \
   -n devportal-system \
-  --dry-run=client -o yaml | kubectl apply -f -
+  --from-literal=username=git-user \
+  --from-literal=password=your-token
 ```
 
-Restart the backend pod if it was already running so it picks up the ConfigMap.
+See [helm/geeko-ops/README.md](helm/geeko-ops/README.md) for subchart-only installs and values.
 
-### 4. Deploy the operator (GitOps reconciliation)
+### From GitHub Release
 
 ```bash
-./scripts/deploy-operator-local.sh   # local / dev
-# or apply deploy/operator/ manifests for your environment
+# After tagging v0.1.0 — download geeko-ops-0.1.0.tgz from Releases
+helm upgrade --install geeko-ops geeko-ops-0.1.0.tgz \
+  --namespace devportal-system --create-namespace \
+  --set devportal.rancher.token="..." \
+  --set devportal.image.tag=v0.1.0 \
+  --set operator.image.tag=v0.1.0
 ```
 
-### 5. Open Rancher
+---
 
-In the left app bar, click **Geeko-Ops** (Geeko in a jacket). Admins see **Ops queue**, **Catalog & config**, and the same marketplace as users.
+## Releases & container images
+
+Push a semver tag to build and publish:
+
+```bash
+git tag v0.1.0 && git push origin v0.1.0
+```
+
+GitHub Actions publishes:
+
+| Artifact | Location |
+|----------|----------|
+| Backend image | `ghcr.io/aeltai/rancher-devportal-backend:v0.1.0` |
+| Operator image | `ghcr.io/aeltai/rancher-devportal-operator:v0.1.0` |
+| Helm charts | GitHub Release attachments (`geeko-ops`, `devportal`, `operator`) |
+
+Or run **Actions → Release → Run workflow** manually.
+
+After first publish, make GHCR packages public (Settings → Packages) or set `imagePullSecrets` on the charts.
 
 ---
 

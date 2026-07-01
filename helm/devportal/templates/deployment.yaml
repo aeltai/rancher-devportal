@@ -65,17 +65,22 @@ spec:
               value: {{ .Values.rancher.publicHost | quote }}
             {{- end }}
             {{- end }}
-            - name: KREW_ROOT
-              value: /opt/krew
-            - name: HOME
-              value: /opt/devportal
             - name: PORT
               value: "3000"
-          {{- if .Values.persistence.enabled }}
+            - name: PLATFORM_CONFIG_PATH
+              value: /etc/platform/platform.yaml
+            - name: PLATFORM_NAMESPACE
+              value: {{ .Release.Namespace | quote }}
           volumeMounts:
+            {{- if .Values.platformConfig.create }}
+            - name: platform-config
+              mountPath: /etc/platform
+              readOnly: true
+            {{- end }}
+            {{- if .Values.persistence.enabled }}
             - name: krew-data
               mountPath: /opt/krew
-          {{- end }}
+            {{- end }}
           livenessProbe:
             httpGet:
               path: /health
@@ -90,12 +95,17 @@ spec:
             periodSeconds: 5
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-      {{- if .Values.persistence.enabled }}
       volumes:
+        {{- if .Values.platformConfig.create }}
+        - name: platform-config
+          configMap:
+            name: {{ .Values.platformConfig.name }}
+        {{- end }}
+        {{- if .Values.persistence.enabled }}
         - name: krew-data
           persistentVolumeClaim:
             claimName: {{ include "devportal.fullname" . }}-krew
-      {{- end }}
+        {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

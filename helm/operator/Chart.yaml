@@ -1,0 +1,13 @@
+apiVersion: v2
+name: operator
+description: Geeko-Ops platform-operator — reconciles PlatformRequest CRs to Git and Fleet
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - geeko-ops
+  - devportal
+  - fleet
+  - gitops
+maintainers:
+  - name: aeltai

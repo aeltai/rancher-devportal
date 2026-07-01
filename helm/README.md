@@ -1,34 +1,22 @@
-# Geeko-Ops Helm Chart
+# Geeko-Ops Helm charts
 
-Installs **devportal-backend** and registers the **Geeko-Ops** UI extension in Rancher.
+| Chart | Path | Installs |
+|-------|------|----------|
+| **geeko-ops** | `helm/geeko-ops/` | Umbrella — backend + operator + config + CRD |
+| **devportal** | `helm/devportal/` | Backend API, UIPlugin, platform-config |
+| **operator** | `helm/operator/` | platform-operator Deployment + RBAC |
 
-See the main [README](../README.md) for full installation steps, local dev, and configuration.
-
-## Install
-
-```bash
-helm upgrade --install geeko-ops ./helm/devportal \
-  --namespace devportal-system \
-  --create-namespace \
-  --set rancher.url=https://rancher.cattle-system.svc \
-  --set rancher.token="token-xxx:yyyy" \
-  --set uiPlugin.endpoint="https://aeltai.github.io/rancher-devportal/extensions/devportal/0.1.0/plugin"
-```
-
-Also apply:
+## Quick start
 
 ```bash
-kubectl apply -f deploy/crd/platformrequest.yaml
-kubectl create configmap platform-config \
-  --from-file=platform.yaml=../config/platform.yaml \
-  -n devportal-system --dry-run=client -o yaml | kubectl apply -f -
+cd helm/geeko-ops
+helm dependency update
+helm upgrade --install geeko-ops . -n devportal-system --create-namespace \
+  --set devportal.rancher.token="token-xxx:yyyy"
 ```
 
-## Values
+## Release artifacts
 
-| Key | Description |
-|-----|-------------|
-| `uiPlugin.enabled` | Register UIPlugin CR |
-| `uiPlugin.endpoint` | GitHub Pages or self-hosted extension URL |
-| `uiPlugin.metadata.catalog.cattle.io/display-name` | Sidebar label (**Geeko-Ops**) |
-| `rancher.url` / `rancher.token` | Backend → Rancher API |
+Charts and container images are published on git tag `v*` via `.github/workflows/release.yml`.
+
+See [geeko-ops/README.md](geeko-ops/README.md) for full values reference.

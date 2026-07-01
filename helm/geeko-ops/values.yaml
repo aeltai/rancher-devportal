@@ -1,0 +1,37 @@
+# Geeko-Ops umbrella chart — install backend + operator together.
+# helm upgrade --install geeko-ops ./helm/geeko-ops -n devportal-system --create-namespace
+
+global:
+  platformConfigName: platform-config
+
+devportal:
+  enabled: true
+  fullnameOverride: geeko-ops-backend
+  image:
+    repository: ghcr.io/aeltai/rancher-devportal-backend
+    tag: ""  # defaults to chart appVersion
+  platformConfig:
+    create: true
+    name: platform-config
+  persistence:
+    enabled: false
+  rancher:
+    url: "https://rancher.cattle-system.svc"
+    token: ""
+    publicHost: ""
+  uiPlugin:
+    enabled: true
+    endpoint: "https://aeltai.github.io/rancher-devportal/extensions/devportal/0.1.0/plugin"
+  git:
+    credentials:
+      create: false
+      existingSecret: platform-git-credentials
+
+operator:
+  enabled: true
+  fullnameOverride: platform-operator
+  image:
+    repository: ghcr.io/aeltai/rancher-devportal-operator
+    tag: ""
+  platformConfig:
+    configMapName: platform-config

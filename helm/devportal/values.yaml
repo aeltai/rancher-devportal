@@ -38,9 +38,9 @@ uiPlugin:
     catalog.cattle.io/ui-extensions-version: ">= 3.0.0 < 4.0.0"
 
 image:
-  repository: ghcr.io/aeltai/rancher-devportal
+  repository: ghcr.io/aeltai/rancher-devportal-backend
   pullPolicy: IfNotPresent
-  tag: "latest"
+  tag: ""
 
 imagePullSecrets: []
 
@@ -105,11 +105,28 @@ rancher:
     tokenKey: token
     publicHostKey: publicHost
 
-# Persistent volume for krew plugins (survives pod restarts)
+# Persistent volume (legacy krew path — disabled for Geeko-Ops backend)
 persistence:
-  enabled: true
+  enabled: false
   storageClass: ""
   size: 1Gi
+
+# Platform catalog ConfigMap (platform.yaml)
+platformConfig:
+  create: true
+  name: platform-config
+  # Set existingContent to override bundled files/platform.yaml
+  existingContent: ""
+
+# Git credentials for Fleet push (operator + backend)
+git:
+  credentials:
+    create: false
+    secretName: platform-git-credentials
+    existingSecret: ""
+    username: ""
+    password: ""
+    token: ""
 
 
 nodeSelector: {}

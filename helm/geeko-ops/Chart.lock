@@ -1,0 +1,9 @@
+dependencies:
+- name: devportal
+  repository: file://../devportal
+  version: 0.1.0
+- name: operator
+  repository: file://../operator
+  version: 0.1.0
+digest: sha256:1898b2f68c827cee8d8bc1421c9098951d691f4d629e6d017e2ca7e414376970
+generated: "2026-07-01T23:47:18.586034+02:00"
