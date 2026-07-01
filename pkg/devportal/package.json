@@ -1,11 +1,11 @@
 {
   "name": "devportal",
-  "description": "Developer self-service portal for Rancher — virtual clusters, Fleet GitOps, operators",
+  "description": "Geeko-Ops — self-service ops marketplace for Rancher. Catalog, Fleet GitOps, and Geeko-approved environments.",
   "version": "0.1.0",
   "private": false,
   "rancher": {
     "annotations": {
-      "catalog.cattle.io/display-name": "Developer Portal",
+      "catalog.cattle.io/display-name": "Geeko-Ops",
       "catalog.cattle.io/kube-version": ">= 1.16.0-0",
       "catalog.cattle.io/rancher-version": ">= 2.10.0-0",
       "catalog.cattle.io/ui-extensions-version": ">= 3.0.0 < 4.0.0"

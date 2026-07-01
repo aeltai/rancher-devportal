@@ -114,17 +114,23 @@ func pushManifests(repo, branch, gitPath string, files map[string]string, creds 
 
 func embedCreds(repoURL string, creds gitCreds) (string, error) {
 	repoURL = strings.TrimSpace(repoURL)
-	if !strings.HasPrefix(repoURL, "https://") {
-		return "", fmt.Errorf("only https git repos supported")
+	scheme := ""
+	switch {
+	case strings.HasPrefix(repoURL, "https://"):
+		scheme = "https"
+	case strings.HasPrefix(repoURL, "http://"):
+		scheme = "http"
+	default:
+		return "", fmt.Errorf("git repo URL must start with http:// or https://")
 	}
 	token := creds.Token
 	if token == "" {
 		return repoURL, nil
 	}
-	rest := strings.TrimPrefix(repoURL, "https://")
+	rest := strings.TrimPrefix(strings.TrimPrefix(repoURL, "https://"), "http://")
 	user := creds.Username
 	if user == "" {
 		user = "git"
 	}
-	return fmt.Sprintf("https://%s:%s@%s", user, token, rest), nil
+	return fmt.Sprintf("%s://%s:%s@%s", scheme, user, token, rest), nil
 }

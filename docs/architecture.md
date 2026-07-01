@@ -13,7 +13,7 @@ sequenceDiagram
   participant Git as User Git repo
   participant Fleet as Fleet GitRepo
 
-  User->>UI: Fill wizard (name, template, charts, git repo)
+  User->>UI: Wizard (collection, offering, form values, git)
   UI->>Rancher: POST ext.cattle.io/Token
   Rancher-->>UI: bearerToken
   UI->>API: POST /api/portal/requests (Bearer)
@@ -33,11 +33,22 @@ sequenceDiagram
 
 | Component | Role |
 |-----------|------|
-| **DevPortal UI** | Wizard for environment requests; shows manifest preview and status |
-| **devportal-backend** | Auth, CRD bootstrap, creates `PlatformRequest` CRs (no inline provisioning) |
+| **DevPortal UI** | Catalog-driven wizard; admin catalog builder; manifest preview and status |
+| **devportal-backend** | Auth, catalog API, offering resolution, CRD bootstrap, creates `PlatformRequest` CRs |
 | **platform-operator** | Reconciles CRs: namespace → Git push → Fleet GitRepo → status |
 | **PlatformRequest CRD** | Desired state per environment request |
 | **Fleet GitRepo** | Pulls `environments/{name}/` from user-provided Git repo |
+
+## Catalog model
+
+Platform offerings are configured in `platform.yaml` (ConfigMap `platform-config`):
+
+- **collections[]** — UI categories (Namespaces, Clusters, Platform Services, VMs, Custom)
+- **offerings[]** — requestable items with `kind`: `namespace`, `cluster`, `helm`, `crd`, `generic`
+- **formSchema[]** — admin-defined fields rendered as user forms; backend builds `specYaml` or `manifestYaml`
+- Legacy **templates[]** / **charts[]** auto-migrate to offerings when collections are absent
+
+See [platform-config.md](platform-config.md) for schema details.
 
 ## PlatformRequest CRD
 
@@ -52,7 +63,14 @@ metadata:
 spec:
   name: my-team
   displayName: "My Team"
-  template: team          # sandbox | team | vcluster
+  template: team
+  offeringId: team-ns
+  collectionId: namespaces
+  formValues:
+    cpu: "2"
+  cloneFromRef:
+    clusterId: local
+    namespace: cattle-fleet-system
   charts:
     - rancher-monitoring
     - cert-manager

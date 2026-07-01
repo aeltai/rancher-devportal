@@ -8,7 +8,7 @@ annotations:
   catalog.cattle.io/ui-extensions-version: ">= 3.0.0 < 4.0.0"
 apiVersion: v2
 name: devportal
-description: Developer Portal — self-service environments for Rancher Dashboard
+description: Geeko-Ops — self-service ops marketplace for Rancher Dashboard
 type: application
 version: 0.1.0
 appVersion: "0.1.0"

@@ -27,31 +27,78 @@ spec:
               properties:
                 name:
                   type: string
+                  description: Environment slug (env-{name} namespace)
                 displayName:
                   type: string
                 description:
                   type: string
                 template:
                   type: string
-                  enum: ["sandbox", "team", "vcluster"]
+                  description: Environment profile id (defined in platform-config)
+                offeringId:
+                  type: string
+                collectionId:
+                  type: string
+                cloneFromRef:
+                  type: object
+                  properties:
+                    clusterId:
+                      type: string
+                    clusterName:
+                      type: string
+                    namespace:
+                      type: string
+                    projectId:
+                      type: string
+                    projectName:
+                      type: string
+                formValues:
+                  type: object
+                  additionalProperties:
+                    type: string
                 charts:
                   type: array
                   items:
                     type: string
+                customResources:
+                  type: array
+                  description: Custom CR manifests to push to Git (operator CRDs, etc.)
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      apiVersion:
+                        type: string
+                      kind:
+                        type: string
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                      specYaml:
+                        type: string
+                      manifestYaml:
+                        type: string
                 requester:
                   type: string
                 gitRepo:
                   type: string
+                  description: Git repository URL for Fleet manifests (HTTPS)
                 gitBranch:
                   type: string
+                  description: Branch to push manifests to
                 gitPath:
                   type: string
+                  description: Path prefix inside repo (default environments/{name})
                 gitSecretName:
                   type: string
+                  description: Secret in CR namespace with username/password or token for Git push
                 targetClusters:
                   type: array
                   items:
                     type: string
+                  description: Fleet target cluster names (empty = all clusters)
             status:
               type: object
               properties:
@@ -65,6 +112,9 @@ spec:
                   type: string
                 namespaceName:
                   type: string
+                approvedBy:
+                  type: string
+                  description: Rancher username who approved the request
                 conditions:
                   type: array
                   items:

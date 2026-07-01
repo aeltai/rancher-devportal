@@ -1,6 +1,6 @@
 {
   "name": "rancher-devportal",
-  "description": "Rancher Developer Portal — self-service environments via UI extension",
+  "description": "Geeko-Ops — self-service ops marketplace for Rancher Dashboard",
   "version": "0.1.0",
   "private": false,
   "rancher": {

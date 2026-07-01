@@ -112,6 +112,9 @@ func corsMiddleware() gin.HandlerFunc {
 }
 
 func main() {
+	if err := loadPlatformConfig(); err != nil {
+		fmt.Fprintf(os.Stderr, "platform config: %v (using defaults)\n", err)
+	}
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
 	r.Use(corsMiddleware())
@@ -126,9 +129,20 @@ func main() {
 		api.GET("/auth/me", handleAuthMe)
 		api.GET("/portal/catalog", handlePortalCatalog)
 		api.GET("/portal/stack", handlePortalStack)
+		api.GET("/portal/clusters", handlePortalClusters)
+		api.GET("/portal/existing-resources", handlePortalExistingResources)
+		api.POST("/portal/git/test-connection", handlePortalTestGitConnection)
+		api.GET("/portal/crds", handlePortalDiscoverCRDs)
+		api.GET("/portal/crds/form-schema", handlePortalCRDFormSchema)
+		api.GET("/portal/platform-config", handlePortalGetPlatformConfig)
+		api.GET("/portal/platform-config/bundle", handlePortalGetBundledPlatformConfig)
+		api.PUT("/portal/platform-config", handlePortalSavePlatformConfig)
+		api.POST("/portal/platform-config/serialize", handlePortalSerializePlatformConfig)
 		api.GET("/portal/requests", handlePortalListRequests)
 		api.GET("/portal/requests/:name", handlePortalGetRequest)
 		api.POST("/portal/requests", handlePortalCreateRequest)
+		api.POST("/portal/requests/:name/approve", handlePortalApproveRequest)
+		api.POST("/portal/requests/:name/reject", handlePortalRejectRequest)
 	}
 
 	port := os.Getenv("PORT")

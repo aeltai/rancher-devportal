@@ -4,12 +4,14 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY *.go ./
 COPY crd/ ./crd/
+COPY config/ ./config/
 RUN CGO_ENABLED=0 GOOS=linux go build -o devportal-backend .
 
 FROM alpine:latest
 RUN apk add --no-cache curl kubectl
 COPY --from=builder /app/devportal-backend /usr/local/bin/devportal-backend
 ENV PORT=3000
+ENV PLATFORM_CONFIG_PATH=/etc/platform/platform.yaml
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 CMD curl -f http://localhost:3000/health || exit 1
 EXPOSE 3000
 CMD ["devportal-backend"]

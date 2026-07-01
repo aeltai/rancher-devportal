@@ -2,9 +2,21 @@ const config = require('@rancher/shell/vue.config'); // eslint-disable-line @typ
 
 const vueConfig = config(__dirname, {
   excludes: [],
+  proxy: {
+    '/devportal-api': {
+      target:       'http://localhost:9010',
+      changeOrigin: true,
+      pathRewrite:  { '^/devportal-api': '' },
+    },
+  },
 });
 
 vueConfig.lintOnSave = false;
+
+vueConfig.devServer = {
+  ...(vueConfig.devServer || {}),
+  historyApiFallback: true,
+};
 
 const existingChainWebpack = vueConfig.chainWebpack;
 

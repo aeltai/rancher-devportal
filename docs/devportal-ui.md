@@ -3,81 +3,52 @@
 ## Overview
 
 The Developer Portal is a Rancher UI extension under **Platform → Developer Portal**.  
-It renders at full width (layout `plain`) — no sidebar padding — to maximise usable space.
+It uses `@rancher/shell` **Wizard** for requests and a structured **DevPortal Admin Settings** panel for catalog management.
 
-## Wizard — requesting an environment
+## Request wizard (6 steps)
 
-Click **Request environment** to open the 4-step wizard.
+Click **Request environment** to open the catalog-driven wizard:
 
-### Step 1 — Name
+| Step | Purpose |
+|------|---------|
+| **1. Basics** | Environment name (slug → `env-{name}`) and description |
+| **2. Collection** | Choose catalog category (Namespaces, Clusters, Platform Services, VMs, Custom) |
+| **3. Offering** | Pick a specific offering; clone-pattern offerings include cluster + namespace picker |
+| **4. Configure** | Helm chart pickers, or dynamic form fields from admin `formSchema` |
+| **5. Delivery** | Git repo URL, branch, path, target clusters (shown when GitOps required) |
+| **6. Review** | Full summary including form values and Git target |
 
-- **Environment name**: lowercase, numbers, hyphens (slugified automatically). Becomes the namespace `env-<name>` and the CR name `pr-<name>`.
-- **Description**: optional free-text stored in `spec.description`.
+Components: `RequestWizard.vue`, `OfferingFormField.vue`.
 
-### Step 2 — Template
+## DevPortal Admin Settings
 
-Choose one of three environment profiles:
+Admins open **DevPortal Admin Settings** to manage the platform catalog:
 
-| Template | When to use |
-|----------|-------------|
-| **Sandbox** | Dev experiments, personal namespaces, no Fleet GitRepo |
-| **Team environment** | Shared team namespace + Fleet GitRepo for GitOps chart delivery |
-| **Virtual cluster** | Full isolated control plane (requires vCluster operator) |
+| Tab | Purpose |
+|-----|---------|
+| **Collections** | Group offerings (namespaces, clusters, services, VMs, custom) |
+| **Offerings** | Per-kind catalog entries with field builder for CRD/generic |
+| **Git connections** | Multi-repo config with **Test connection** |
+| **Approval & CRD** | Approval toggles and CRD discovery cluster selector |
 
-### Step 3 — Charts
-
-Optional Helm charts delivered via Fleet bundles. Available catalog:
-
-| Chart | Category |
-|-------|----------|
-| rancher-monitoring | observability |
-| rancher-logging | observability |
-| rancher-backup | backup |
-| fleet | gitops |
-| cert-manager | security |
-| ingress-nginx | networking |
-
-### Step 4 — Review
-
-Summary of name, template, and selected charts before submit.
-
-## "What gets generated" preview
-
-Below the request table, a live preview updates as you fill in the wizard:
-
-- **PlatformRequest CR** — the YAML submitted to Kubernetes
-- **Namespace** — `env-<name>` with template/env labels
-- **Fleet GitRepo** — (team/vcluster only) Fleet CR pointing at the platform Git repo
-- **Git repository layout** — folder tree under `environments/<name>/`
-
-The preview uses the currently entered name, selected template and charts, so it reflects exactly what will be created.
+Toggle **Visual editor** / **YAML** for round-trip editing. Component: `CatalogAdminSettings.vue`, `FieldBuilder.vue`.
 
 ## Request table
 
-The request list shows all your environments (admins see all users' requests).
+Shows your environments (admins see all). Expand a row for Git preview, Fleet status, and YAML tabs.
 
-**Columns:** Name · Requester (admin) · Phase · Namespace · Template · Charts · Created · View manifest
+## Admin approval
 
-Click a row or **View manifest** to expand:
+Offerings with `requiresApproval: true` (or global approval rules for charts/CRs) enter **Pending approval** until an admin approves.
 
-- **PlatformRequest YAML** — the full CR as stored in Kubernetes
-- **Fleet & cluster resources** — table of planned Namespace / GitRepo / Bundle resources with Git path and live Fleet phase
-- **GitOps repo hint** — where future PR automation will commit manifests
+## Local development
 
-## Admin view
+```bash
+# From krew-workstation (Krew + DevPortal):
+cd krew-workstation && API=http://localhost:8089 yarn dev   # https://localhost:8005
 
-Admins (username `admin` or `globalRoleBinding` admin) additionally see:
+# DevPortal only:
+cd rancher-devportal && yarn dev   # https://localhost:8006
+```
 
-- All users' requests
-- **Requester** column
-- CR name in Name cell
-- Git repo/branch banner above the table
-
-## Phases
-
-| Phase | Meaning |
-|-------|---------|
-| `Pending` | CR created, provisioning not yet started |
-| `Provisioning` | Namespace being created |
-| `Ready` | Namespace exists, annotations applied |
-| `Failed` | Error during provisioning — see expanded Status message |
+Backend proxy: `/devportal-api` → `http://localhost:9010`

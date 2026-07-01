@@ -23,12 +23,24 @@ var catalogCharts = map[string]chartDef{
 	"ingress-nginx":    {Repo: "https://charts.rancher.io/server-charts/latest", Chart: "ingress-nginx"},
 }
 
+type customResourceSpec struct {
+	APIVersion   string
+	Kind         string
+	Name         string
+	Namespace    string
+	SpecYAML     string
+	ManifestYAML string
+}
+
 type renderInput struct {
 	EnvName         string
 	DisplayName     string
 	Description     string
 	Template        string
+	OfferingID      string
+	CollectionID    string
 	Charts          []string
+	CustomResources []customResourceSpec
 	Requester       string
 	GitPath         string
 	TargetClusters  []string
@@ -38,7 +50,7 @@ func defaultGitPath(envName string) string {
 	return fmt.Sprintf("environments/%s", envName)
 }
 
-func renderManifests(in renderInput) map[string]string {
+func renderManifests(in renderInput, chartLookup func(string) (chartDef, bool)) map[string]string {
 	envNs := "env-" + in.EnvName
 	gitPath := strings.Trim(in.GitPath, "/")
 	if gitPath == "" {
@@ -62,12 +74,18 @@ func renderManifests(in renderInput) map[string]string {
 			},
 		},
 	}
+	if in.OfferingID != "" {
+		ns["metadata"].(map[string]any)["labels"].(map[string]any)["devportal.io/offering"] = in.OfferingID
+	}
+	if in.CollectionID != "" {
+		ns["metadata"].(map[string]any)["labels"].(map[string]any)["devportal.io/collection"] = in.CollectionID
+	}
 	out[gitPath+"/namespace.yaml"] = mustYAML(ns)
 
 	fleetDoc := map[string]any{
 		"defaultNamespace": envNs,
 	}
-	releases := helmReleases(in.Charts, envNs)
+	releases := helmReleases(in.Charts, envNs, chartLookup)
 	if len(releases) > 0 {
 		fleetDoc["helm"] = map[string]any{"releases": releases}
 	}
@@ -83,17 +101,65 @@ Managed by PlatformRequest operator (Developer Portal).
 `, in.EnvName, in.Template, in.Requester, envNs)
 	out[gitPath+"/README.md"] = readme
 
+	for _, cr := range in.CustomResources {
+		if strings.TrimSpace(cr.ManifestYAML) != "" {
+			fname := "manifest.yaml"
+			if cr.Kind != "" && cr.Name != "" {
+				fname = strings.ToLower(cr.Kind) + "-" + cr.Name + ".yaml"
+			}
+			out[gitPath+"/resources/"+fname] = cr.ManifestYAML
+			continue
+		}
+		yamlContent := renderCustomResourceYAML(cr, envNs)
+		if yamlContent == "" {
+			continue
+		}
+		fname := strings.ToLower(cr.Kind) + "-" + cr.Name + ".yaml"
+		out[gitPath+"/resources/"+fname] = yamlContent
+	}
+
 	return out
 }
 
-func helmReleases(charts []string, envNs string) []map[string]any {
+func renderCustomResourceYAML(cr customResourceSpec, envNs string) string {
+	if strings.TrimSpace(cr.ManifestYAML) != "" {
+		return cr.ManifestYAML
+	}
+	if cr.APIVersion == "" || cr.Kind == "" {
+		return ""
+	}
+	ns := cr.Namespace
+	if ns == "" {
+		ns = envNs
+	}
+	obj := map[string]any{
+		"apiVersion": cr.APIVersion,
+		"kind":       cr.Kind,
+		"metadata": map[string]any{
+			"name":      cr.Name,
+			"namespace": ns,
+			"labels": map[string]any{
+				"devportal.io/managed": "true",
+			},
+		},
+	}
+	if strings.TrimSpace(cr.SpecYAML) != "" {
+		var spec map[string]any
+		if err := yaml.Unmarshal([]byte(cr.SpecYAML), &spec); err == nil {
+			obj["spec"] = spec
+		}
+	}
+	return mustYAML(obj)
+}
+
+func helmReleases(charts []string, envNs string, chartLookup func(string) (chartDef, bool)) []map[string]any {
 	var releases []map[string]any
 	for _, id := range charts {
 		id = strings.TrimSpace(id)
 		if id == "" {
 			continue
 		}
-		def, ok := catalogCharts[id]
+		def, ok := chartLookup(id)
 		if !ok {
 			def = chartDef{Repo: "https://charts.rancher.io/server-charts/latest", Chart: id}
 		}

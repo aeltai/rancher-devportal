@@ -18,7 +18,7 @@ bootstrap:
     repository: bitnami/kubectl
     tag: "latest"
 
-# UI extension - loads the Developer Portal UI in Rancher Dashboard
+# UI extension - loads Geeko-Ops in Rancher Dashboard
 uiPlugin:
   enabled: true
   # Must match extension plugin/package.json "name" so Rancher shows it in sidebar
@@ -32,7 +32,7 @@ uiPlugin:
   noCache: false
   noAuth: false
   metadata:
-    catalog.cattle.io/display-name: Developer Portal
+    catalog.cattle.io/display-name: Geeko-Ops
     catalog.cattle.io/kube-version: ">= 1.16.0-0"
     catalog.cattle.io/rancher-version: ">= 2.10.0-0"
     catalog.cattle.io/ui-extensions-version: ">= 3.0.0 < 4.0.0"

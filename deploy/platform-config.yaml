@@ -1,0 +1,318 @@
+# Platform configuration for Developer Portal + platform-operator.
+# Admins edit via Platform → Developer Portal → DevPortal Admin Settings.
+
+defaults:
+  namespace: devportal-system
+  fleetNamespace: fleet-default
+  gitSecretName: platform-git-credentials
+  gitBranch: main
+  gitPathPrefix: environments
+
+git:
+  mode: single
+  defaultRepo: http://gitea.devportal-system.svc:3000/platform/fleet.git
+  repos:
+    - id: platform-fleet
+      name: Platform Fleet (Gitea)
+      url: http://gitea.devportal-system.svc:3000/platform/fleet.git
+      branch: main
+      secretName: platform-git-credentials
+      authType: token
+
+collections:
+  - id: namespaces
+    label: Namespaces & Projects
+    description: Isolated namespaces for development and teams
+    icon: namespace
+    weight: 10
+  - id: clusters
+    label: Clusters
+    description: Virtual or dedicated cluster environments
+    icon: cluster
+    weight: 20
+  - id: platform-services
+    label: Platform Services
+    description: Helm-managed platform add-ons delivered via Fleet
+    icon: apps
+    weight: 30
+  - id: virtual-machines
+    label: Virtual Machines
+    description: Harvester VM workloads on downstream clusters
+    icon: vm
+    weight: 40
+  - id: custom
+    label: Custom Offerings
+    description: Platform team custom manifests and services
+    icon: file
+    weight: 50
+
+offerings:
+  - id: sandbox-ns
+    collectionId: namespaces
+    label: Sandbox namespace
+    description: Lightweight personal namespace — no GitOps push
+    detail: Best for quick experiments. Auto-approved.
+    icon: namespace
+    kind: namespace
+    template: sandbox
+    gitOps: false
+    requiresApproval: false
+    weight: 10
+
+  - id: team-ns
+    collectionId: namespaces
+    label: Team namespace
+    description: Shared namespace with GitOps delivery
+    detail: Manifests sync from Git after admin approval.
+    icon: fleet
+    kind: namespace
+    template: team
+    gitOps: true
+    requiresApproval: true
+    weight: 20
+
+  - id: namespace-clone
+    collectionId: namespaces
+    label: Namespace like existing
+    description: New namespace modeled after one you can access
+    detail: Copies ResourceQuota and LimitRange from the source namespace.
+    icon: copy
+    kind: namespace
+    template: team
+    cloneFrom: true
+    gitOps: true
+    requiresApproval: true
+    weight: 30
+
+  - id: vcluster
+    collectionId: clusters
+    label: Virtual cluster
+    description: Isolated control plane (vCluster-style)
+    detail: Requires vCluster operator on target clusters.
+    icon: cluster
+    kind: cluster
+    template: vcluster
+    clusterType: vcluster
+    gitOps: true
+    requiresApproval: true
+    weight: 10
+
+  - id: helm-monitoring
+    collectionId: platform-services
+    label: Monitoring stack
+    description: Prometheus + Grafana via Rancher monitoring chart
+    icon: helm
+    kind: helm
+    template: team
+    charts:
+      - rancher-monitoring
+    gitOps: true
+    requiresApproval: true
+    weight: 10
+
+  - id: helm-logging
+    collectionId: platform-services
+    label: Logging stack
+    description: Banzai Cloud logging operator
+    icon: helm
+    kind: helm
+    template: team
+    charts:
+      - rancher-logging
+    gitOps: true
+    requiresApproval: true
+    weight: 20
+
+  - id: helm-ingress
+    collectionId: platform-services
+    label: Ingress NGINX
+    description: Ingress controller for the environment
+    icon: helm
+    kind: helm
+    template: team
+    charts:
+      - ingress-nginx
+    gitOps: true
+    requiresApproval: true
+    weight: 30
+
+  - id: harvester-vm-small
+    collectionId: virtual-machines
+    label: Small Harvester VM
+    description: Single-node VM on a Harvester cluster
+    icon: vm
+    kind: crd
+    template: team
+    apiVersion: kubevirt.io/v1
+    kindName: VirtualMachine
+    targetCluster: harvester
+    gitOps: true
+    requiresApproval: true
+    formSchema:
+      - key: image
+        label: OS image
+        type: select
+        specPath: spec.template.spec.volumes.0.containerDisk.image
+        default: harvester-public/image-j6hd6
+        options:
+          - harvester-public/image-j6hd6
+          - harvester-public/image-w8qk2
+      - key: cpu
+        label: vCPUs
+        type: number
+        specPath: spec.template.spec.domain.cpu.cores
+        default: "2"
+        required: true
+      - key: memory
+        label: Memory (Gi)
+        type: text
+        specPath: spec.template.spec.domain.resources.requests.memory
+        default: 4Gi
+        required: true
+
+  - id: redis-generic
+    collectionId: custom
+    label: Redis instance
+    description: Example generic offering using a manifest template
+    icon: file
+    kind: generic
+    template: team
+    gitOps: true
+    requiresApproval: true
+    manifestTemplate: |
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: redis-{{ .name }}
+        namespace: {{ .envNs }}
+      spec:
+        selector:
+          app: redis-{{ .name }}
+        ports:
+          - port: 6379
+      ---
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: redis-{{ .name }}
+        namespace: {{ .envNs }}
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: redis-{{ .name }}
+        template:
+          metadata:
+            labels:
+              app: redis-{{ .name }}
+          spec:
+            containers:
+              - name: redis
+                image: {{ .image }}
+                ports:
+                  - containerPort: 6379
+    formSchema:
+      - key: image
+        label: Container image
+        type: text
+        default: redis:7-alpine
+        required: true
+
+# Legacy fields kept for backward compatibility / migration
+templates:
+  - id: sandbox
+    label: Sandbox
+    description: Lightweight dev namespace — no GitOps push.
+    icon: namespace
+    gitOps: false
+    requiresApproval: false
+  - id: team
+    label: Team environment
+    description: Shared namespace plus Fleet GitRepo.
+    icon: fleet
+    gitOps: true
+    requiresApproval: true
+  - id: vcluster
+    label: Virtual cluster
+    description: Isolated control plane.
+    icon: cluster
+    gitOps: true
+    requiresApproval: true
+
+charts:
+  - id: rancher-monitoring
+    name: Monitoring
+    category: observability
+    description: Prometheus + Grafana stack
+    type: helm
+    helm:
+      repo: https://charts.rancher.io/server-charts/latest
+      chart: rancher-monitoring
+  - id: rancher-logging
+    name: Logging
+    category: observability
+    description: Banzai Cloud logging operator
+    type: helm
+    helm:
+      repo: https://charts.rancher.io/server-charts/latest
+      chart: rancher-logging
+  - id: cert-manager
+    name: cert-manager
+    category: security
+    description: TLS certificate automation
+    type: helm
+    helm:
+      repo: https://charts.rancher.io/server-charts/latest
+      chart: rancher-cert-manager
+  - id: ingress-nginx
+    name: Ingress NGINX
+    category: networking
+    description: Ingress controller
+    type: helm
+    helm:
+      repo: https://charts.rancher.io/server-charts/latest
+      chart: ingress-nginx
+
+customResourcePresets:
+  - id: lokistack-example
+    name: LokiStack (example)
+    category: observability
+    description: Grafana Loki operator preset
+    apiVersion: loki.grafana.com/v1
+    kind: LokiStack
+    scope: Namespaced
+    defaultSpec: |
+      size: 1x.small
+
+crdDiscovery:
+  enabled: true
+  clusters: local
+  excludeGroups:
+    - ""
+    - apiextensions.k8s.io
+    - apiregistration.k8s.io
+    - coordination.k8s.io
+    - discovery.k8s.io
+    - events.k8s.io
+    - flowcontrol.apiserver.k8s.io
+    - internal.apiserver.k8s.io
+    - rbac.authorization.k8s.io
+    - authentication.k8s.io
+    - authorization.k8s.io
+    - certificates.k8s.io
+    - policy
+    - scheduling.k8s.io
+    - storage.k8s.io
+    - admissionregistration.k8s.io
+    - node.k8s.io
+    - platform.devportal.io
+    - fleet.cattle.io
+    - catalog.cattle.io
+    - ext.cattle.io
+    - management.cattle.io
+    - project.cattle.io
+    - ui.cattle.io
+
+approval:
+  chartsRequireApproval: true
+  customResourcesRequireApproval: true

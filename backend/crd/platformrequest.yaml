@@ -34,11 +34,52 @@ spec:
                   type: string
                 template:
                   type: string
-                  enum: ["sandbox", "team", "vcluster"]
+                  description: Environment profile id (defined in platform-config)
+                offeringId:
+                  type: string
+                collectionId:
+                  type: string
+                cloneFromRef:
+                  type: object
+                  properties:
+                    clusterId:
+                      type: string
+                    clusterName:
+                      type: string
+                    namespace:
+                      type: string
+                    projectId:
+                      type: string
+                    projectName:
+                      type: string
+                formValues:
+                  type: object
+                  additionalProperties:
+                    type: string
                 charts:
                   type: array
                   items:
                     type: string
+                customResources:
+                  type: array
+                  description: Custom CR manifests to push to Git (operator CRDs, etc.)
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      apiVersion:
+                        type: string
+                      kind:
+                        type: string
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                      specYaml:
+                        type: string
+                      manifestYaml:
+                        type: string
                 requester:
                   type: string
                 gitRepo:
@@ -71,6 +112,9 @@ spec:
                   type: string
                 namespaceName:
                   type: string
+                approvedBy:
+                  type: string
+                  description: Rancher username who approved the request
                 conditions:
                   type: array
                   items:

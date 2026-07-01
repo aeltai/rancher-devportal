@@ -1,3 +1,5 @@
+import { PORTAL_PRODUCT_ICON } from './offeringIcons';
+
 const BLANK_CLUSTER = '_';
 
 export function init($plugin, store) {
@@ -7,8 +9,8 @@ export function init($plugin, store) {
   const { product, basicType, virtualType } = $plugin.DSL(store, PRODUCT);
 
   product({
-    icon: 'apps',
-    label: 'Developer Portal',
+    svg: PORTAL_PRODUCT_ICON,
+    label: 'Geeko-Ops',
     inStore: 'management',
     weight: 90,
     to: {
@@ -18,13 +20,13 @@ export function init($plugin, store) {
   });
 
   virtualType({
-    label: 'Developer Portal',
+    label: 'Geeko-Ops',
     name: PORTAL_PAGE,
     route: {
       name: `${PRODUCT}-c-cluster-${PORTAL_PAGE}`,
       params: { product: PRODUCT, cluster: BLANK_CLUSTER },
     },
-    icon: 'apps',
+    icon: 'marketplace',
   });
 
   basicType([PORTAL_PAGE]);

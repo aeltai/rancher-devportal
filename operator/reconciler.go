@@ -83,16 +83,32 @@ func (r *reconciler) reconcileOne(ctx context.Context, pr *unstructured.Unstruct
 	if envName == "" {
 		return fmt.Errorf("spec.name is empty")
 	}
+
+	phase, _, _ := unstructured.NestedString(pr.Object, "status", "phase")
 	template := strField(specMap, "template")
 	if template == "" {
 		template = "sandbox"
 	}
 	charts := strSliceField(specMap, "charts")
+
+	switch phase {
+	case "PendingApproval", "Rejected":
+		return nil
+	case "Pending":
+		if template != "sandbox" || len(charts) > 0 || len(customResourcesFromSpec(specMap)) > 0 {
+			return nil
+		}
+	}
+
 	requester := strField(specMap, "requester")
 	displayName := strField(specMap, "displayName")
 	description := strField(specMap, "description")
 
+	opCfg := r.loadOpConfig()
 	gitRepo := strField(specMap, "gitRepo")
+	if gitRepo == "" {
+		gitRepo = opCfg.defaultGitRepo()
+	}
 	gitBranch := strField(specMap, "gitBranch")
 	if gitBranch == "" {
 		gitBranch = r.cfg.DefaultGitBranch
@@ -106,6 +122,17 @@ func (r *reconciler) reconcileOne(ctx context.Context, pr *unstructured.Unstruct
 		gitSecret = r.cfg.DefaultGitSecret
 	}
 	targetClusters := strSliceField(specMap, "targetClusters")
+	customResources := customResourcesFromSpec(specMap)
+	if gitSecret == "" {
+		gitSecret = opCfg.Defaults.GitSecretName
+	}
+	if gitBranch == "" {
+		gitBranch = opCfg.Defaults.GitBranch
+	}
+	fleetNs := opCfg.Defaults.FleetNamespace
+	if fleetNs == "" {
+		fleetNs = r.cfg.FleetNamespace
+	}
 
 	envNs := "env-" + envName
 	fleetGitRepoName := "fleet-" + envName
@@ -119,30 +146,39 @@ func (r *reconciler) reconcileOne(ctx context.Context, pr *unstructured.Unstruct
 	}
 	r.patchStatusFields(ctx, pr, map[string]any{"namespaceName": envNs})
 
-	needsGitOps := template == "team" || template == "vcluster" || len(charts) > 0
+	needsGitOps := template != "sandbox" || len(charts) > 0 || len(customResources) > 0
 	if !needsGitOps {
 		r.setPhase(ctx, pr, "Ready", fmt.Sprintf("Namespace %s ready (sandbox)", envNs))
 		return nil
 	}
 
 	if gitRepo == "" {
-		msg := "gitRepo is required for team/vcluster templates or when charts are selected"
+		msg := "gitRepo is required when GitOps resources are requested"
 		r.setPhase(ctx, pr, "Failed", msg)
 		return fmt.Errorf("%s", msg)
 	}
 
 	// 2. Render and push manifests to Git
 	renderIn := renderInput{
-		EnvName:        envName,
-		DisplayName:    displayName,
-		Description:    description,
-		Template:       template,
-		Charts:         charts,
-		Requester:      requester,
-		GitPath:        gitPath,
-		TargetClusters: targetClusters,
+		EnvName:         envName,
+		DisplayName:     displayName,
+		Description:     description,
+		Template:        template,
+		OfferingID:      strField(specMap, "offeringId"),
+		CollectionID:    strField(specMap, "collectionId"),
+		Charts:          charts,
+		CustomResources: customResources,
+		Requester:       requester,
+		GitPath:         gitPath,
+		TargetClusters:  targetClusters,
 	}
-	files := renderManifests(renderIn)
+	files := renderManifests(renderIn, func(id string) (chartDef, bool) {
+		if h, ok := opCfg.chartHelm(id); ok {
+			return chartDef{Repo: h.Repo, Chart: h.Chart, Version: h.Version}, true
+		}
+		def, ok := catalogCharts[id]
+		return def, ok
+	})
 
 	creds, err := readGitCreds(ctx, r, pr.GetNamespace(), gitSecret)
 	if err != nil {
@@ -160,13 +196,13 @@ func (r *reconciler) reconcileOne(ctx context.Context, pr *unstructured.Unstruct
 
 	// 3. Create/update Fleet GitRepo
 	gitRepoObj := renderFleetGitRepo(fleetGitRepoName, gitRepo, gitBranch, gitPath, targetClusters)
-	if err := r.ensureFleetGitRepo(ctx, r.cfg.FleetNamespace, fleetGitRepoName, gitRepoObj); err != nil {
+	if err := r.ensureFleetGitRepo(ctx, fleetNs, fleetGitRepoName, gitRepoObj); err != nil {
 		r.setPhase(ctx, pr, "Failed", "Fleet GitRepo: "+err.Error())
 		return err
 	}
 	r.patchStatusFields(ctx, pr, map[string]any{"fleetGitRepoName": fleetGitRepoName})
 
-	fleetPhase := r.fleetGitRepoPhase(ctx, r.cfg.FleetNamespace, fleetGitRepoName)
+	fleetPhase := r.fleetGitRepoPhase(ctx, fleetNs, fleetGitRepoName)
 	msg := fmt.Sprintf("Namespace %s; Git commit %s; Fleet GitRepo %s", envNs, shortCommit(commit), fleetGitRepoName)
 	if fleetPhase != "" {
 		msg += "; Fleet: " + fleetPhase
@@ -272,4 +308,31 @@ func shortCommit(c string) string {
 		return c[:7]
 	}
 	return c
+}
+
+func customResourcesFromSpec(m map[string]any) []customResourceSpec {
+	raw, ok := m["customResources"]
+	if !ok || raw == nil {
+		return nil
+	}
+	arr, ok := raw.([]any)
+	if !ok {
+		return nil
+	}
+	var out []customResourceSpec
+	for _, item := range arr {
+		obj, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		out = append(out, customResourceSpec{
+			APIVersion:   strField(obj, "apiVersion"),
+			Kind:         strField(obj, "kind"),
+			Name:         strField(obj, "name"),
+			Namespace:    strField(obj, "namespace"),
+			SpecYAML:     strField(obj, "specYaml"),
+			ManifestYAML: strField(obj, "manifestYaml"),
+		})
+	}
+	return out
 }

@@ -1,29 +1,34 @@
-# Developer Portal Helm Chart
+# Geeko-Ops Helm Chart
 
-Deploy **devportal-backend** and the **UIPlugin** CR to the Rancher management cluster.
+Installs **devportal-backend** and registers the **Geeko-Ops** UI extension in Rancher.
+
+See the main [README](../README.md) for full installation steps, local dev, and configuration.
 
 ## Install
 
 ```bash
-kubectl apply -f ../../deploy/crd/platformrequest.yaml
-
-helm install devportal . \
+helm upgrade --install geeko-ops ./helm/devportal \
+  --namespace devportal-system \
+  --create-namespace \
   --set rancher.url=https://rancher.cattle-system.svc \
-  --set rancher.token="token-xxx" \
-  --set uiPlugin.endpoint="https://aeltai.github.io/rancher-devportal/extensions/devportal/0.1.0/plugin" \
-  -n devportal-system --create-namespace
+  --set rancher.token="token-xxx:yyyy" \
+  --set uiPlugin.endpoint="https://aeltai.github.io/rancher-devportal/extensions/devportal/0.1.0/plugin"
 ```
 
-## Key values
+Also apply:
 
-| Parameter | Description |
-|-----------|-------------|
-| `uiPlugin.endpoint` | GitHub Pages URL to extension bundle |
-| `uiPlugin.pluginName` | Must be `devportal` |
-| `rancher.url` | In-cluster Rancher API URL |
-| `rancher.token` | Service account token (optional if using existingSecret) |
-| `persistence.enabled` | PVC for backend data (optional) |
+```bash
+kubectl apply -f deploy/crd/platformrequest.yaml
+kubectl create configmap platform-config \
+  --from-file=platform.yaml=../config/platform.yaml \
+  -n devportal-system --dry-run=client -o yaml | kubectl apply -f -
+```
 
-## RBAC
+## Values
 
-The backend needs a ServiceAccount with permissions to create namespaces and manage `platformrequests.platform.devportal.io` in `devportal-system`. Extend `templates/serviceaccount.yaml` with a ClusterRoleBinding for production use.
+| Key | Description |
+|-----|-------------|
+| `uiPlugin.enabled` | Register UIPlugin CR |
+| `uiPlugin.endpoint` | GitHub Pages or self-hosted extension URL |
+| `uiPlugin.metadata.catalog.cattle.io/display-name` | Sidebar label (**Geeko-Ops**) |
+| `rancher.url` / `rancher.token` | Backend → Rancher API |

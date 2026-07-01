@@ -3,7 +3,7 @@ RUN apk add --no-cache git ca-certificates
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
-COPY *.go ./
+COPY *.go platform.yaml ./
 RUN CGO_ENABLED=0 GOOS=linux go build -o /platform-operator .
 
 FROM alpine:3.20

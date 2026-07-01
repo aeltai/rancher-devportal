@@ -178,7 +178,11 @@ func enrichFromRawItem(item struct {
 		Description:      item.Spec.Description,
 		Namespace:        coalesce(item.Status.NamespaceName, "env-"+envName),
 		Template:         item.Spec.Template,
+		OfferingID:       item.Spec.OfferingID,
+		CollectionID:     item.Spec.CollectionID,
+		CloneFromRef:     item.Spec.CloneFromRef,
 		Charts:           item.Spec.Charts,
+		CustomResources:  item.Spec.CustomResources,
 		Requester:        item.Spec.Requester,
 		Phase:            phase,
 		Message:          item.Status.Message,
@@ -192,6 +196,8 @@ func enrichFromRawItem(item struct {
 		TargetClusters:   item.Spec.TargetClusters,
 		GitCommit:        item.Status.GitCommit,
 		FleetGitRepoName: item.Status.FleetGitRepoName,
+		ApprovedBy:       item.Status.ApprovedBy,
+		GitPreview:       buildGitPreview(item.Spec, envName),
 		PullRequestHint:  pullRequestHint(envName, item.Spec.GitRepo, item.Spec.GitBranch, item.Spec.GitPath),
 	}
 }

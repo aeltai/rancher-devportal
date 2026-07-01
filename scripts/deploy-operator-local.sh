@@ -31,6 +31,7 @@ docker exec "$RANCHER_CONTAINER" kubectl create namespace devportal-system --dry
   | docker exec -i "$RANCHER_CONTAINER" kubectl apply -f -
 
 docker exec -i "$RANCHER_CONTAINER" kubectl apply -f - < "$ROOT/deploy/crd/platformrequest.yaml"
+docker exec -i "$RANCHER_CONTAINER" kubectl apply -f - < "$ROOT/deploy/platform-config.yaml"
 docker exec -i "$RANCHER_CONTAINER" kubectl apply -f - < "$ROOT/deploy/operator/deployment.yaml"
 
 echo "Done."

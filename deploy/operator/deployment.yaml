@@ -60,17 +60,22 @@ spec:
           env:
             - name: PLATFORM_NAMESPACE
               value: devportal-system
-            - name: PLATFORM_FLEET_NAMESPACE
-              value: fleet-default
-            - name: PLATFORM_GIT_BRANCH
-              value: main
-            - name: PLATFORM_GIT_SECRET
-              value: platform-git-credentials
+            - name: PLATFORM_CONFIG_PATH
+              value: /etc/platform/platform.yaml
             - name: RECONCILE_INTERVAL
               value: 15s
+          volumeMounts:
+            - name: platform-config
+              mountPath: /etc/platform
+              readOnly: true
           resources:
             requests:
               cpu: 50m
               memory: 64Mi
             limits:
               memory: 256Mi
+      volumes:
+        - name: platform-config
+          configMap:
+            name: platform-config
+            optional: true
