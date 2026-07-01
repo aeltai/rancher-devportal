@@ -40,7 +40,8 @@
           <span role="listitem" :class="['dp-step-pill', { active: wizardStep === 1, done: wizardStep > 1 }]">1. Name</span>
           <span role="listitem" :class="['dp-step-pill', { active: wizardStep === 2, done: wizardStep > 2 }]">2. Template</span>
           <span role="listitem" :class="['dp-step-pill', { active: wizardStep === 3, done: wizardStep > 3 }]">3. Charts</span>
-          <span role="listitem" :class="['dp-step-pill', { active: wizardStep === 4 }]">4. Review</span>
+          <span role="listitem" :class="['dp-step-pill', { active: wizardStep === 4, done: wizardStep > 4 }]">4. Git &amp; Fleet</span>
+          <span role="listitem" :class="['dp-step-pill', { active: wizardStep === 5 }]">5. Review</span>
         </div>
 
         <div v-if="wizardStep === 1" class="dp-step">
@@ -92,7 +93,25 @@
           </fieldset>
         </div>
 
-        <div v-if="wizardStep === 4" class="dp-step dp-review">
+        <div v-if="wizardStep === 4" class="dp-step">
+          <p class="step-lead">
+            <span v-if="needsGitOps">Provide the Git repository where Fleet manifests will be pushed. The platform operator authenticates via a Kubernetes Secret.</span>
+            <span v-else>Sandbox-only requests skip Git push — you can leave defaults or continue.</span>
+          </p>
+          <label class="label">Git repository URL <span v-if="needsGitOps" class="required">*</span></label>
+          <input v-model="form.gitRepo" class="input-sm" type="url" placeholder="https://github.com/your-org/platform-fleet" />
+          <label class="label">Branch</label>
+          <input v-model="form.gitBranch" class="input-sm" type="text" placeholder="main" />
+          <label class="label">Path in repo</label>
+          <input v-model="form.gitPath" class="input-sm" type="text" :placeholder="`environments/${form.slug || 'my-env'}`" />
+          <label class="label">Git credentials Secret</label>
+          <input v-model="form.gitSecretName" class="input-sm" type="text" placeholder="platform-git-credentials" />
+          <p class="hint">Secret in <code>devportal-system</code> with keys <code>username</code> and <code>token</code> (or <code>password</code>).</p>
+          <label class="label">Target clusters</label>
+          <input v-model="form.targetClustersText" class="input-sm" type="text" placeholder="local (comma-separated, empty = all clusters)" />
+        </div>
+
+        <div v-if="wizardStep === 5" class="dp-step dp-review">
           <dl>
             <dt>Name</dt><dd>{{ form.name }}</dd>
             <dt>Template</dt><dd>{{ templateLabel }}</dd>
@@ -101,13 +120,20 @@
               <span v-if="!form.charts.length" class="muted">None</span>
               <span v-for="id in form.charts" :key="id" class="dp-chip">{{ chartName(id) }}</span>
             </dd>
+            <template v-if="needsGitOps">
+              <dt>Git repo</dt><dd><code>{{ form.gitRepo || '—' }}</code></dd>
+              <dt>Branch</dt><dd><code>{{ form.gitBranch || platformGitBranch || 'main' }}</code></dd>
+              <dt>Path</dt><dd><code>{{ effectiveGitPath }}</code></dd>
+              <dt>Target clusters</dt>
+              <dd>{{ form.targetClustersText || 'All clusters' }}</dd>
+            </template>
           </dl>
         </div>
 
         <div class="dp-wizard-actions">
           <button v-if="wizardStep > 1" class="btn role-secondary" type="button" @click="wizardStep--">Back</button>
-          <button v-if="wizardStep < 4" class="btn role-primary" type="button" :disabled="!canNext" @click="wizardStep++">Next</button>
-          <button v-if="wizardStep === 4" class="btn role-primary" type="button" :disabled="submitting" @click="submitRequest">
+          <button v-if="wizardStep < 5" class="btn role-primary" type="button" :disabled="!canNext" @click="wizardStep++">Next</button>
+          <button v-if="wizardStep === 5" class="btn role-primary" type="button" :disabled="submitting" @click="submitRequest">
             {{ submitting ? 'Submitting…' : 'Submit request' }}
           </button>
         </div>
@@ -127,7 +153,7 @@
           <i class="icon icon-fleet" />
           GitOps repo: <code>{{ platformGitRepo }}</code>
           <span v-if="platformGitBranch"> · branch <code>{{ platformGitBranch }}</code></span>
-          <span class="muted"> — future PRs land under <code>environments/&lt;name&gt;/</code></span>
+          <span class="muted"> — operator pushes manifests under <code>environments/&lt;name&gt;/</code></span>
         </p>
         <p class="dp-table-hint">
           <i class="icon icon-info" />
@@ -184,6 +210,10 @@
                   </div>
                   <div v-if="r.message" class="dp-detail-banner">
                     <strong>Status:</strong> {{ r.message }}
+                  </div>
+                  <div v-if="r.gitCommit" class="dp-detail-banner">
+                    <strong>Git commit:</strong> <code>{{ r.gitCommit }}</code>
+                    <span v-if="r.fleetGitRepoName"> · Fleet GitRepo: <code>{{ r.fleetGitRepoName }}</code></span>
                   </div>
                   <div v-if="r.pullRequestHint" class="dp-detail-banner muted">
                     <i class="icon icon-github" /> {{ r.pullRequestHint }}
@@ -261,7 +291,12 @@
             <pre class="dp-yaml"><code>{{ previewNamespaceYaml }}</code></pre>
           </div>
 
-          <div v-if="form.template !== 'sandbox'" class="dp-overview-panel">
+          <div v-if="needsGitOps" class="dp-overview-panel">
+            <div class="dp-overview-panel-head"><i class="icon icon-fleet" /> fleet.yaml (Helm releases)</div>
+            <pre class="dp-yaml"><code>{{ previewFleetYaml }}</code></pre>
+          </div>
+
+          <div v-if="form.template !== 'sandbox' || form.charts.length" class="dp-overview-panel">
             <div class="dp-overview-panel-head"><i class="icon icon-fleet" /> Fleet GitRepo</div>
             <pre class="dp-yaml"><code>{{ previewGitRepoYaml }}</code></pre>
           </div>
@@ -278,7 +313,7 @@
           Platform Git repo:
           <a :href="platformGitRepo" target="_blank" rel="noopener"><code>{{ platformGitRepo }}</code></a>
           <span v-if="platformGitBranch"> · branch <code>{{ platformGitBranch }}</code></span>
-          <span class="muted"> — future: automation opens a PR here when you submit a request</span>
+          <span class="muted"> — operator pushes manifests and creates Fleet GitRepo on submit</span>
         </p>
       </section>
     </div>
@@ -359,6 +394,11 @@ export default {
         description: '',
         template: 'sandbox',
         charts: [],
+        gitRepo: '',
+        gitBranch: '',
+        gitPath: '',
+        gitSecretName: 'platform-git-credentials',
+        targetClustersText: '',
       },
     };
   },
@@ -367,7 +407,23 @@ export default {
     canNext() {
       if (this.wizardStep === 1) return /^[a-z0-9]([a-z0-9-]{1,28}[a-z0-9])?$/.test(this.form.slug);
       if (this.wizardStep === 2) return !!this.form.template;
+      if (this.wizardStep === 4 && this.needsGitOps) {
+        return /^https:\/\/.+/.test((this.form.gitRepo || '').trim());
+      }
       return true;
+    },
+    needsGitOps() {
+      return this.form.template !== 'sandbox' || (this.form.charts && this.form.charts.length > 0);
+    },
+    effectiveGitPath() {
+      if (this.form.gitPath) return this.form.gitPath;
+      return `environments/${this.form.slug || '<env-name>'}`;
+    },
+    targetClustersList() {
+      return (this.form.targetClustersText || '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
     },
     templateLabel() {
       return this.templates.find((t) => t.id === this.form.template)?.label || this.form.template;
@@ -397,6 +453,20 @@ export default {
       if (this.form.description) {
         lines.push(`  description: "${this.form.description}"`);
       }
+      if (this.needsGitOps && this.form.gitRepo) {
+        lines.push(`  gitRepo: ${this.form.gitRepo}`);
+        lines.push(`  gitBranch: ${this.form.gitBranch || this.platformGitBranch || 'main'}`);
+        lines.push(`  gitPath: ${this.effectiveGitPath}`);
+        if (this.form.gitSecretName) {
+          lines.push(`  gitSecretName: ${this.form.gitSecretName}`);
+        }
+        if (this.targetClustersList.length) {
+          lines.push('  targetClusters:');
+          this.targetClustersList.forEach((c) => lines.push(`    - ${c}`));
+        }
+      }
+      lines.push('status:');
+      lines.push('  phase: Pending');
       return lines.join('\n');
     },
 
@@ -415,9 +485,10 @@ export default {
 
     previewGitRepoYaml() {
       const env = this._previewEnv;
-      const repo = this.platformGitRepo || 'https://github.com/your-org/platform';
-      const branch = this.platformGitBranch || 'main';
-      return [
+      const repo = this.form.gitRepo || this.platformGitRepo || 'https://github.com/your-org/platform';
+      const branch = this.form.gitBranch || this.platformGitBranch || 'main';
+      const path = this.effectiveGitPath;
+      const lines = [
         'apiVersion: fleet.cattle.io/v1alpha1',
         'kind: GitRepo',
         'metadata:',
@@ -427,30 +498,48 @@ export default {
         `  repo: ${repo}`,
         `  branch: ${branch}`,
         `  paths:`,
-        `    - environments/${env}`,
+        `    - ${path}`,
         '  targets:',
-        '    - clusterSelector: {}',
-      ].join('\n');
+      ];
+      if (this.targetClustersList.length) {
+        lines.push('    - name: selected-clusters');
+        lines.push('      clusterNames:');
+        this.targetClustersList.forEach((c) => lines.push(`        - ${c}`));
+      } else {
+        lines.push('    - name: all-clusters');
+        lines.push('      clusterSelector: {}');
+      }
+      return lines.join('\n');
+    },
+
+    previewFleetYaml() {
+      const env = this._previewEnv;
+      const lines = [
+        `defaultNamespace: env-${env}`,
+      ];
+      if (this.form.charts.length) {
+        lines.push('helm:');
+        lines.push('  releases:');
+        this.form.charts.forEach((c) => {
+          lines.push(`    - name: ${c}`);
+          lines.push(`      chart: ${c}`);
+          lines.push('      repo: https://charts.rancher.io/server-charts/latest');
+          lines.push(`      namespace: env-${env}`);
+        });
+      }
+      return lines.join('\n');
     },
 
     previewGitTree() {
       const env = this._previewEnv;
-      const charts = this.form.charts.length ? this.form.charts : ['<chart-name>'];
-      const lines = [
-        `${this.platformGitRepo || 'platform-repo'}/`,
-        `└── environments/`,
-        `    └── ${env}/`,
-        `        ├── namespace.yaml`,
-        `        ├── fleet.yaml`,
-      ];
-      charts.forEach((c, i) => {
-        const isLast = i === charts.length - 1;
-        lines.push(`        ${isLast ? '└' : '├'}── charts/`);
-        lines.push(`        ${isLast ? ' ' : '│'}   └── ${c}/`);
-        lines.push(`        ${isLast ? ' ' : '│'}       ├── Chart.yaml`);
-        lines.push(`        ${isLast ? ' ' : '│'}       └── values.yaml`);
-      });
-      return lines.join('\n');
+      const path = this.effectiveGitPath;
+      return [
+        `${this.form.gitRepo || this.platformGitRepo || 'platform-repo'}/`,
+        `└── ${path}/`,
+        `    ├── namespace.yaml`,
+        `    ├── fleet.yaml`,
+        `    └── README.md`,
+      ].join('\n');
     },
   },
 
@@ -532,7 +621,18 @@ export default {
     startWizard() {
       this.showWizard = true;
       this.wizardStep = 1;
-      this.form = { name: '', slug: '', description: '', template: 'sandbox', charts: [] };
+      this.form = {
+        name: '',
+        slug: '',
+        description: '',
+        template: 'sandbox',
+        charts: [],
+        gitRepo: this.platformGitRepo || '',
+        gitBranch: this.platformGitBranch || 'main',
+        gitPath: '',
+        gitSecretName: 'platform-git-credentials',
+        targetClustersText: '',
+      };
     },
 
     cancelWizard() {
@@ -588,8 +688,13 @@ export default {
           description: this.form.description,
           template: this.form.template,
           charts: this.form.charts,
+          gitRepo: this.needsGitOps ? this.form.gitRepo.trim() : '',
+          gitBranch: this.form.gitBranch || this.platformGitBranch || 'main',
+          gitPath: this.effectiveGitPath,
+          gitSecretName: this.form.gitSecretName || 'platform-git-credentials',
+          targetClusters: this.targetClustersList,
         });
-        this.message = `Environment "${this.form.name}" submitted — provisioning started.`;
+        this.message = `Environment "${this.form.name}" submitted — platform operator will push manifests and create Fleet GitRepo.`;
         this.showWizard = false;
         await this.loadRequests();
       } catch (e) {
@@ -781,6 +886,10 @@ export default {
     color: var(--muted);
     margin: 6px 0;
     code { font-size: 0.95em; }
+  }
+
+  .required {
+    color: var(--error);
   }
 
   .dp-wizard-actions {

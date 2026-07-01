@@ -22,21 +22,42 @@ spec:
           properties:
             spec:
               type: object
+              required:
+                - name
               properties:
                 name:
                   type: string
+                  description: Environment slug (env-{name} namespace)
                 displayName:
                   type: string
                 description:
                   type: string
                 template:
                   type: string
+                  enum: ["sandbox", "team", "vcluster"]
                 charts:
                   type: array
                   items:
                     type: string
                 requester:
                   type: string
+                gitRepo:
+                  type: string
+                  description: Git repository URL for Fleet manifests (HTTPS)
+                gitBranch:
+                  type: string
+                  description: Branch to push manifests to
+                gitPath:
+                  type: string
+                  description: Path prefix inside repo (default environments/{name})
+                gitSecretName:
+                  type: string
+                  description: Secret in CR namespace with username/password or token for Git push
+                targetClusters:
+                  type: array
+                  items:
+                    type: string
+                  description: Fleet target cluster names (empty = all clusters)
             status:
               type: object
               properties:
@@ -44,6 +65,25 @@ spec:
                   type: string
                 message:
                   type: string
+                gitCommit:
+                  type: string
+                fleetGitRepoName:
+                  type: string
+                namespaceName:
+                  type: string
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                      reason:
+                        type: string
+                      message:
+                        type: string
       additionalPrinterColumns:
         - name: Template
           type: string
@@ -54,3 +94,6 @@ spec:
         - name: Requester
           type: string
           jsonPath: .spec.requester
+        - name: GitRepo
+          type: string
+          jsonPath: .spec.gitRepo

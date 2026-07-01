@@ -1,5 +1,8 @@
 # Run devportal-backend against the krew-workstation Rancher (no second Rancher).
 # Usage: docker compose -f docker-compose.local.yml up -d --build
+#
+# Deploy the platform operator into Rancher (separate step):
+#   ./scripts/deploy-operator-local.sh
 
 services:
   devportal-backend:
@@ -13,8 +16,10 @@ services:
       - RANCHER_URL=https://rancher:443
       - RANCHER_TOKEN=${RANCHER_TOKEN:-}
       - PLATFORM_NAMESPACE=devportal-system
-      - PLATFORM_GIT_REPO=https://github.com/aeltai/rancher-devportal
+      - PLATFORM_GIT_REPO=http://gitea.devportal-system.svc:3000/platform/fleet.git
       - PLATFORM_GIT_BRANCH=main
+      - PLATFORM_GIT_SECRET=platform-git-credentials
+      - PLATFORM_FLEET_NAMESPACE=fleet-default
       - ALLOW_SERVICE_TOKEN=true
     networks:
       - krew-workstation_default

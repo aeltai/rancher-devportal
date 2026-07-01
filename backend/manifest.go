@@ -41,11 +41,24 @@ func platformFleetNamespace() string {
 	return "fleet-default"
 }
 
-func buildFleetPlan(envName, template string, charts []string) []FleetResource {
+func platformGitSecretName() string {
+	if s := strings.TrimSpace(os.Getenv("PLATFORM_GIT_SECRET")); s != "" {
+		return s
+	}
+	return "platform-git-credentials"
+}
+
+func buildFleetPlan(envName, template string, charts []string, gitRepo, gitBranch, gitPath string, targetClusters []string) []FleetResource {
 	envNs := "env-" + envName
-	repo := platformGitRepo()
-	branch := platformGitBranch()
-	gitPath := fmt.Sprintf("environments/%s", envName)
+	if gitRepo == "" {
+		gitRepo = platformGitRepo()
+	}
+	if gitBranch == "" {
+		gitBranch = platformGitBranch()
+	}
+	if gitPath == "" {
+		gitPath = fmt.Sprintf("environments/%s", envName)
+	}
 	fleetNs := platformFleetNamespace()
 
 	resources := []FleetResource{
@@ -70,11 +83,11 @@ func buildFleetPlan(envName, template string, charts []string) []FleetResource {
 			Kind:        "GitRepo",
 			Name:        "fleet-" + envName,
 			Namespace:   fleetNs,
-			RepoURL:     repo,
-			Branch:      branch,
+			RepoURL:     gitRepo,
+			Branch:      gitBranch,
 			Path:        gitPath,
 			Phase:       "planned",
-			Description: "Fleet GitRepo — chart manifests synced from Git",
+			Description: fleetTargetDescription(targetClusters),
 		})
 	}
 
@@ -86,24 +99,37 @@ func buildFleetPlan(envName, template string, charts []string) []FleetResource {
 			Kind:        "Bundle",
 			Name:        chart + "-" + envName,
 			Namespace:   envNs,
-			RepoURL:     repo,
-			Branch:      branch,
-			Path:        gitPath + "/charts/" + chart,
+			RepoURL:     gitRepo,
+			Branch:      gitBranch,
+			Path:        gitPath,
 			Phase:       "planned",
-			Description: "Fleet bundle for Helm chart " + chart,
+			Description: "Fleet bundle for Helm chart " + chart + " (via fleet.yaml)",
 		})
 	}
 
 	return resources
 }
 
-func pullRequestHint(envName string) string {
-	repo := platformGitRepo()
-	branch := platformGitBranch()
-	path := fmt.Sprintf("environments/%s", envName)
+func fleetTargetDescription(targetClusters []string) string {
+	if len(targetClusters) == 0 {
+		return "Fleet GitRepo — syncs to all clusters"
+	}
+	return fmt.Sprintf("Fleet GitRepo — targets clusters: %s", strings.Join(targetClusters, ", "))
+}
+
+func pullRequestHint(envName, gitRepo, gitBranch, gitPath string) string {
+	if gitRepo == "" {
+		gitRepo = platformGitRepo()
+	}
+	if gitBranch == "" {
+		gitBranch = platformGitBranch()
+	}
+	if gitPath == "" {
+		gitPath = fmt.Sprintf("environments/%s", envName)
+	}
 	return fmt.Sprintf(
-		"Future workflow: automation opens a pull request against %s (branch %s) under %s/ with Fleet bundles and namespace manifests.",
-		repo, branch, path,
+		"Platform operator pushes manifests to %s (branch %s) under %s/ and creates a Fleet GitRepo to deploy the bundle.",
+		gitRepo, gitBranch, gitPath,
 	)
 }
 
@@ -146,31 +172,47 @@ func enrichFromRawItem(item struct {
 	}
 
 	return PlatformRequest{
-		CRName:          item.Metadata.Name,
-		Name:            envName,
-		DisplayName:     item.Spec.DisplayName,
-		Description:     item.Spec.Description,
-		Namespace:       "env-" + envName,
-		Template:        item.Spec.Template,
-		Charts:          item.Spec.Charts,
-		Requester:       item.Spec.Requester,
-		Phase:           phase,
-		Message:         item.Status.Message,
-		CreatedAt:       item.Metadata.CreationTimestamp,
-		ManifestYAML:    objectToYAML(obj),
-		FleetResources:  buildFleetPlan(envName, item.Spec.Template, item.Spec.Charts),
-		GitRepoURL:      platformGitRepo(),
-		GitBranch:       platformGitBranch(),
-		GitPath:         fmt.Sprintf("environments/%s", envName),
-		PullRequestHint: pullRequestHint(envName),
+		CRName:           item.Metadata.Name,
+		Name:             envName,
+		DisplayName:      item.Spec.DisplayName,
+		Description:      item.Spec.Description,
+		Namespace:        coalesce(item.Status.NamespaceName, "env-"+envName),
+		Template:         item.Spec.Template,
+		Charts:           item.Spec.Charts,
+		Requester:        item.Spec.Requester,
+		Phase:            phase,
+		Message:          item.Status.Message,
+		CreatedAt:        item.Metadata.CreationTimestamp,
+		ManifestYAML:     objectToYAML(obj),
+		FleetResources:   buildFleetPlan(envName, item.Spec.Template, item.Spec.Charts, item.Spec.GitRepo, item.Spec.GitBranch, item.Spec.GitPath, item.Spec.TargetClusters),
+		GitRepoURL:       coalesce(item.Spec.GitRepo, platformGitRepo()),
+		GitBranch:        coalesce(item.Spec.GitBranch, platformGitBranch()),
+		GitPath:          coalesce(item.Spec.GitPath, fmt.Sprintf("environments/%s", envName)),
+		GitSecretName:    coalesce(item.Spec.GitSecretName, platformGitSecretName()),
+		TargetClusters:   item.Spec.TargetClusters,
+		GitCommit:        item.Status.GitCommit,
+		FleetGitRepoName: item.Status.FleetGitRepoName,
+		PullRequestHint:  pullRequestHint(envName, item.Spec.GitRepo, item.Spec.GitBranch, item.Spec.GitPath),
 	}
+}
+
+func coalesce(values ...string) string {
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 func mergeLiveFleetStatus(kubeCfg string, req *PlatformRequest) {
 	if kubeCfg == "" || req == nil {
 		return
 	}
-	gitRepoName := "fleet-" + req.Name
+	gitRepoName := req.FleetGitRepoName
+	if gitRepoName == "" {
+		gitRepoName = "fleet-" + req.Name
+	}
 	out, err := runKubectlWithConfig(kubeCfg, "get", "gitrepos.fleet.cattle.io", gitRepoName,
 		"-n", platformFleetNamespace(), "-o", "json")
 	if err == nil {

@@ -22,6 +22,8 @@ spec:
           properties:
             spec:
               type: object
+              required:
+                - name
               properties:
                 name:
                   type: string
@@ -31,12 +33,25 @@ spec:
                   type: string
                 template:
                   type: string
+                  enum: ["sandbox", "team", "vcluster"]
                 charts:
                   type: array
                   items:
                     type: string
                 requester:
                   type: string
+                gitRepo:
+                  type: string
+                gitBranch:
+                  type: string
+                gitPath:
+                  type: string
+                gitSecretName:
+                  type: string
+                targetClusters:
+                  type: array
+                  items:
+                    type: string
             status:
               type: object
               properties:
@@ -44,6 +59,25 @@ spec:
                   type: string
                 message:
                   type: string
+                gitCommit:
+                  type: string
+                fleetGitRepoName:
+                  type: string
+                namespaceName:
+                  type: string
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                      reason:
+                        type: string
+                      message:
+                        type: string
       additionalPrinterColumns:
         - name: Template
           type: string
@@ -54,3 +88,6 @@ spec:
         - name: Requester
           type: string
           jsonPath: .spec.requester
+        - name: GitRepo
+          type: string
+          jsonPath: .spec.gitRepo

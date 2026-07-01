@@ -8,23 +8,36 @@ sequenceDiagram
   participant UI as DevPortalPage
   participant Rancher
   participant API as devportal-backend
+  participant Op as platform-operator
   participant K8s as Management cluster
-  participant Git as Platform Git repo
+  participant Git as User Git repo
+  participant Fleet as Fleet GitRepo
 
-  User->>UI: Fill wizard (name, template, charts)
+  User->>UI: Fill wizard (name, template, charts, git repo)
   UI->>Rancher: POST ext.cattle.io/Token
   Rancher-->>UI: bearerToken
   UI->>API: POST /api/portal/requests (Bearer)
-  API->>Rancher: GET /v3/users?me=true (verify user)
-  API->>Rancher: POST /v3/clusters/:id?action=generateKubeconfig
-  API->>K8s: kubectl apply CRD (auto-embedded)
+  API->>Rancher: verify user + generateKubeconfig
   API->>K8s: kubectl apply PlatformRequest CR
-  API->>K8s: create Namespace env-{name}
-  API->>K8s: patch status → Ready
-  Note over API,Git: Future: open PR to Git repo with Fleet manifests
+  Op->>K8s: watch PlatformRequests
+  Op->>K8s: create Namespace env-{name}
+  Op->>Git: clone, render manifests, push
+  Op->>Fleet: create/update GitRepo fleet-{name}
+  Fleet->>K8s: deploy bundles to target clusters
+  Op->>K8s: patch status (gitCommit, phase Ready)
   UI->>API: GET /api/portal/requests
   API-->>UI: requests + manifestYaml + fleetResources
 ```
+
+## Components
+
+| Component | Role |
+|-----------|------|
+| **DevPortal UI** | Wizard for environment requests; shows manifest preview and status |
+| **devportal-backend** | Auth, CRD bootstrap, creates `PlatformRequest` CRs (no inline provisioning) |
+| **platform-operator** | Reconciles CRs: namespace → Git push → Fleet GitRepo → status |
+| **PlatformRequest CRD** | Desired state per environment request |
+| **Fleet GitRepo** | Pulls `environments/{name}/` from user-provided Git repo |
 
 ## PlatformRequest CRD
 
@@ -34,7 +47,7 @@ Each self-service request becomes a namespaced `PlatformRequest` in `devportal-s
 apiVersion: platform.devportal.io/v1alpha1
 kind: PlatformRequest
 metadata:
-  name: pr-my-team
+  name: pr-my-team-12345
   namespace: devportal-system
 spec:
   name: my-team
@@ -44,45 +57,88 @@ spec:
     - rancher-monitoring
     - cert-manager
   requester: admin
+  gitRepo: https://github.com/your-org/platform-fleet
+  gitBranch: main
+  gitPath: environments/my-team
+  gitSecretName: platform-git-credentials
+  targetClusters:
+    - local
 status:
-  phase: Ready            # Pending → Provisioning → Ready | Failed
-  message: "Environment env-my-team is ready"
+  phase: Ready            # Pending → Reconciling → Pushing → Ready | Failed
+  message: "Namespace env-my-team; Git commit abc1234; Fleet GitRepo fleet-my-team"
+  gitCommit: abc1234567890
+  fleetGitRepoName: fleet-my-team
+  namespaceName: env-my-team
 ```
 
 | Field | Purpose |
 |-------|---------|
 | `spec.template` | `sandbox`, `team`, or `vcluster` guardrails |
-| `spec.charts` | Selected catalog chart IDs for Fleet delivery |
-| `spec.requester` | Rancher username stamped at submit time |
-| `status.phase` | `Pending` → `Provisioning` → `Ready` / `Failed` |
+| `spec.charts` | Selected catalog chart IDs rendered into `fleet.yaml` Helm releases |
+| `spec.gitRepo` | HTTPS Git repo URL (required for team/vcluster or when charts selected) |
+| `spec.gitBranch` | Branch to push manifests to (default `main`) |
+| `spec.gitPath` | Path prefix in repo (default `environments/{name}`) |
+| `spec.gitSecretName` | Secret in CR namespace with `username` + `token` for Git push |
+| `spec.targetClusters` | Fleet cluster names (empty = all clusters) |
+| `status.phase` | Operator reconciliation phase |
 
-## Fleet GitOps plan
+## Platform operator
 
-For `team` and `vcluster` templates, the backend plans these resources:
+The operator runs in-cluster (`deploy/operator/deployment.yaml`) and polls `PlatformRequest` resources every 15s.
 
-| Kind | Name | Purpose |
-|------|------|---------|
-| `Namespace` | `env-{name}` | Isolated environment namespace |
-| `GitRepo` | `fleet-{name}` | Fleet sync from `environments/{name}/` |
-| `Bundle` | `{chart}-{name}` | Per-chart Fleet bundle (one per selected chart) |
+**Reconcile steps:**
 
-The Git repo root, branch, and Fleet namespace are configured via environment variables:
+1. Create `env-{name}` namespace with devportal labels/annotations
+2. If GitOps needed (team/vcluster template or charts): render `namespace.yaml`, `fleet.yaml`, `README.md`
+3. Read Git credentials from `spec.gitSecretName` (keys: `username`, `token` or `password`)
+4. Clone user repo, commit manifests under `spec.gitPath`, push to `spec.gitBranch`
+5. Create or update Fleet `GitRepo` `fleet-{name}` in `fleet-default` pointing at the path
+6. Patch CR status with `gitCommit`, `fleetGitRepoName`, `namespaceName`, phase
+
+**Git manifest layout** (pushed to user repo):
 
 ```
-PLATFORM_GIT_REPO=https://github.com/your-org/platform
-PLATFORM_GIT_BRANCH=main
-PLATFORM_FLEET_NAMESPACE=fleet-default
+environments/{name}/
+├── namespace.yaml    # env-{name} Namespace
+├── fleet.yaml        # defaultNamespace + helm.releases for selected charts
+└── README.md
 ```
 
-Future automation will open a pull request to `PLATFORM_GIT_REPO` under `environments/{name}/` with the Namespace, GitRepo, and per-chart manifests.
+**Fleet GitRepo targets:**
+
+- Empty `targetClusters` → all clusters (`clusterSelector: {}`)
+- Non-empty → `clusterNames: [...]`
+
+### Deploy locally
+
+```bash
+# Gitea + Rancher stack
+cd krew-workstation && docker compose up -d gitea rancher
+
+# Operator + Gitea bootstrap (creates org/repo, token secret, in-cluster Service)
+cd rancher-devportal && ./scripts/deploy-operator-local.sh
+```
+
+**Local Gitea defaults:**
+
+| Setting | Value |
+|---------|-------|
+| UI | http://localhost:3001 |
+| Login | `platform` / `platform` |
+| Org/repo | `platform/fleet` (user-owned repo) |
+| In-cluster URL | `http://gitea.devportal-system.svc:3000/platform/fleet.git` |
+
+The setup script registers a Kubernetes `Service` + `Endpoints` in `devportal-system` so the operator pod can reach Gitea on the Docker network.
 
 ## Templates
 
-| Template | Namespace | Fleet GitRepo | Use case |
-|----------|-----------|---------------|---------|
-| `sandbox` | ✓ | — | Dev experiments, personal sandboxes |
-| `team` | ✓ | ✓ | Team environments with GitOps chart delivery |
-| `vcluster` | ✓ | ✓ | Isolated control plane (requires vCluster operator) |
+| Template | Namespace | Git push | Fleet GitRepo | Use case |
+|----------|-----------|----------|---------------|---------|
+| `sandbox` | ✓ | — | — | Dev experiments, personal sandboxes |
+| `team` | ✓ | ✓ | ✓ | Team environments with GitOps chart delivery |
+| `vcluster` | ✓ | ✓ | ✓ | Isolated control plane (requires vCluster operator) |
+
+Charts alone (any template) also trigger Git push + Fleet GitRepo.
 
 ## Kubeconfig resolution
 
@@ -93,13 +149,15 @@ The backend does **not** mount the host kubeconfig. Instead on first use it:
 3. Sets `insecure-skip-tls-verify: true` (Rancher cert is for `localhost`, not `rancher`)
 4. Caches the kubeconfig in-process
 
+The operator uses in-cluster credentials via its ServiceAccount.
+
 ## Admin view
 
 Users with `globalRoleBindings` of `admin` or username `admin` see:
 
 - All platform requests (not just their own)
 - Requester column, CR name, expandable manifest YAML and Fleet resources
-- The planned Git PR path
+- Git repo, commit, and Fleet sync status
 
 ## Separation from Krew Workstation
 
@@ -108,8 +166,9 @@ Users with `globalRoleBindings` of `admin` or username `admin` see:
 | Repo | `krew-workstation` | `rancher-devportal` |
 | Product | Tools → Krew | Platform → Developer Portal |
 | Backend port | 9000 | 9010 |
-| Backend focus | Terminal, kubectl plugins, backups | PlatformRequest provisioning |
+| Backend focus | Terminal, kubectl plugins, backups | PlatformRequest + operator |
 | CRD | — | `platformrequests.platform.devportal.io` |
+| Operator | — | `platform-operator` |
 
 Both extensions install independently on the same Rancher instance.
 
@@ -117,8 +176,8 @@ Both extensions install independently on the same Rancher instance.
 
 | Layer | Current | Planned |
 |-------|---------|---------|
-| Namespace | Created synchronously | Resource quotas, NetworkPolicy templates |
-| Fleet | Planned resources + hints | GitRepo + Bundle created; PR opened to Git |
+| Namespace | Created by operator | Resource quotas, NetworkPolicy templates |
+| Fleet | GitRepo + fleet.yaml helm releases | Per-chart values templates, PR workflow option |
 | Virtual cluster | Template flag | vCluster operator integration |
 | RBAC | Per-user request filter | Rancher Project/Namespace RBAC binding |
-| Git PR | Hint only | Real PR against `PLATFORM_GIT_REPO` |
+| Git auth | Shared platform secret | Per-user / per-request credential refs |

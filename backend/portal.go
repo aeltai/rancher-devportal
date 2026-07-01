@@ -35,17 +35,25 @@ type TemplateEntry struct {
 }
 
 type PlatformRequestSpec struct {
-	Name        string   `json:"name"`
-	DisplayName string   `json:"displayName"`
-	Description string   `json:"description"`
-	Template    string   `json:"template"`
-	Charts      []string `json:"charts"`
-	Requester   string   `json:"requester"`
+	Name           string   `json:"name"`
+	DisplayName    string   `json:"displayName"`
+	Description    string   `json:"description"`
+	Template       string   `json:"template"`
+	Charts         []string `json:"charts"`
+	Requester      string   `json:"requester"`
+	GitRepo        string   `json:"gitRepo,omitempty"`
+	GitBranch      string   `json:"gitBranch,omitempty"`
+	GitPath        string   `json:"gitPath,omitempty"`
+	GitSecretName  string   `json:"gitSecretName,omitempty"`
+	TargetClusters []string `json:"targetClusters,omitempty"`
 }
 
 type PlatformRequestStatus struct {
-	Phase   string `json:"phase"`
-	Message string `json:"message"`
+	Phase            string `json:"phase"`
+	Message          string `json:"message"`
+	GitCommit        string `json:"gitCommit,omitempty"`
+	FleetGitRepoName string `json:"fleetGitRepoName,omitempty"`
+	NamespaceName    string `json:"namespaceName,omitempty"`
 }
 
 type PlatformRequest struct {
@@ -62,10 +70,14 @@ type PlatformRequest struct {
 	CreatedAt       string          `json:"createdAt"`
 	ManifestYAML    string          `json:"manifestYaml,omitempty"`
 	FleetResources  []FleetResource `json:"fleetResources,omitempty"`
-	GitRepoURL      string          `json:"gitRepoUrl,omitempty"`
-	GitBranch       string          `json:"gitBranch,omitempty"`
-	GitPath         string          `json:"gitPath,omitempty"`
-	PullRequestHint string          `json:"pullRequestHint,omitempty"`
+	GitRepoURL       string          `json:"gitRepoUrl,omitempty"`
+	GitBranch        string          `json:"gitBranch,omitempty"`
+	GitPath          string          `json:"gitPath,omitempty"`
+	GitSecretName    string          `json:"gitSecretName,omitempty"`
+	TargetClusters   []string        `json:"targetClusters,omitempty"`
+	GitCommit        string          `json:"gitCommit,omitempty"`
+	FleetGitRepoName string          `json:"fleetGitRepoName,omitempty"`
+	PullRequestHint  string          `json:"pullRequestHint,omitempty"`
 }
 
 var defaultCatalog = []ChartEntry{
@@ -149,10 +161,11 @@ func handlePortalCatalog(c *gin.Context) {
 
 func handlePortalStack(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
-		"recommended": "Rancher + Fleet + Monitoring",
-		"summary":     "Self-service environments provisioned as PlatformRequest CRs, reconciled into namespaces and Fleet bundles.",
+		"recommended": "Rancher + Fleet + platform-operator",
+		"summary":     "Self-service environments as PlatformRequest CRs, reconciled by platform-operator into namespaces, Git manifests, and Fleet GitRepos.",
 		"components": []gin.H{
 			{"name": "PlatformRequest CRD", "role": "Request lifecycle"},
+			{"name": "platform-operator", "role": "Git push + Fleet GitRepo reconcile"},
 			{"name": "Fleet GitRepo", "role": "GitOps delivery of selected charts"},
 			{"name": "Namespace", "role": "env-{name} isolation"},
 		},
@@ -289,11 +302,16 @@ func handlePortalGetRequest(c *gin.Context) {
 }
 
 type createRequestBody struct {
-	Name        string   `json:"name"`
-	DisplayName string   `json:"displayName"`
-	Description string   `json:"description"`
-	Template    string   `json:"template"`
-	Charts      []string `json:"charts"`
+	Name           string   `json:"name"`
+	DisplayName    string   `json:"displayName"`
+	Description    string   `json:"description"`
+	Template       string   `json:"template"`
+	Charts         []string `json:"charts"`
+	GitRepo        string   `json:"gitRepo"`
+	GitBranch      string   `json:"gitBranch"`
+	GitPath        string   `json:"gitPath"`
+	GitSecretName  string   `json:"gitSecretName"`
+	TargetClusters []string `json:"targetClusters"`
 }
 
 func handlePortalCreateRequest(c *gin.Context) {
@@ -319,6 +337,20 @@ func handlePortalCreateRequest(c *gin.Context) {
 	if body.Template == "" {
 		body.Template = "sandbox"
 	}
+	needsGitOps := body.Template == "team" || body.Template == "vcluster" || len(body.Charts) > 0
+	if needsGitOps && strings.TrimSpace(body.GitRepo) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "gitRepo is required for team/vcluster templates or when charts are selected"})
+		return
+	}
+	if body.GitBranch == "" {
+		body.GitBranch = platformGitBranch()
+	}
+	if body.GitPath == "" {
+		body.GitPath = fmt.Sprintf("environments/%s", body.Name)
+	}
+	if body.GitSecretName == "" {
+		body.GitSecretName = platformGitSecretName()
+	}
 
 	ns := portalNamespace()
 	ensureNamespace(ru.Kubeconfig, ns)
@@ -337,12 +369,17 @@ func handlePortalCreateRequest(c *gin.Context) {
 			"namespace": ns,
 		},
 		"spec": PlatformRequestSpec{
-			Name:        body.Name,
-			DisplayName: body.DisplayName,
-			Description: body.Description,
-			Template:    body.Template,
-			Charts:      body.Charts,
-			Requester:   requester,
+			Name:           body.Name,
+			DisplayName:    body.DisplayName,
+			Description:    body.Description,
+			Template:       body.Template,
+			Charts:         body.Charts,
+			Requester:      requester,
+			GitRepo:        strings.TrimSpace(body.GitRepo),
+			GitBranch:      body.GitBranch,
+			GitPath:        body.GitPath,
+			GitSecretName:  body.GitSecretName,
+			TargetClusters: body.TargetClusters,
 		},
 	}
 	yamlBytes, _ := json.Marshal(cr)
@@ -360,31 +397,19 @@ func handlePortalCreateRequest(c *gin.Context) {
 		return
 	}
 
-	patchStatus(ru.Kubeconfig, ns, crName, "Pending", "Queued for provisioning")
-	go provisionEnvironment(ru.Kubeconfig, ns, crName, body.Name, body.Template, body.Charts)
+	patchStatus(ru.Kubeconfig, ns, crName, "Pending", "Queued for operator reconciliation")
 
 	c.JSON(http.StatusCreated, gin.H{
-		"name":           body.Name,
-		"crName":         crName,
-		"message":        "Environment request accepted",
-		"gitRepoUrl":     platformGitRepo(),
-		"gitPath":        fmt.Sprintf("environments/%s", body.Name),
-		"pullRequestHint": pullRequestHint(body.Name),
+		"name":            body.Name,
+		"crName":          crName,
+		"message":         "Environment request accepted — platform operator will reconcile Git push and Fleet GitRepo",
+		"gitRepoUrl":      strings.TrimSpace(body.GitRepo),
+		"gitBranch":       body.GitBranch,
+		"gitPath":         body.GitPath,
+		"gitSecretName":   body.GitSecretName,
+		"targetClusters":  body.TargetClusters,
+		"pullRequestHint": pullRequestHint(body.Name, body.GitRepo, body.GitBranch, body.GitPath),
 	})
-}
-
-func provisionEnvironment(kubeCfg, ns, crName, envName, template string, charts []string) {
-	envNs := "env-" + envName
-	ensureNamespace(kubeCfg, envNs)
-	patchStatus(kubeCfg, ns, crName, "Provisioning", fmt.Sprintf("Created namespace %s", envNs))
-
-	if template == "team" || template == "vcluster" {
-		_, _ = runKubectlWithConfig(kubeCfg, "label", "namespace", envNs, "devportal.io/template="+template, "--overwrite")
-	}
-	for _, chart := range charts {
-		_, _ = runKubectlWithConfig(kubeCfg, "annotate", "namespace", envNs, "devportal.io/chart-"+chart+"=requested", "--overwrite")
-	}
-	patchStatus(kubeCfg, ns, crName, "Ready", fmt.Sprintf("Environment %s is ready (charts: %v)", envNs, charts))
 }
 
 func patchStatus(kubeCfg, ns, name, phase, message string) {
