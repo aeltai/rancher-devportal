@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Geeko-Ops UI tour</title>
+  <link rel="stylesheet" href="site.css" />
+  <link rel="stylesheet" href="tour.css" />
+</head>
+<body>
+  <header class="hero tour-hero">
+    <div class="wrap">
+      <h1>Geeko-Ops UI tour</h1>
+      <p>Real screenshots from the Rancher extension — user marketplace, request wizard, ops queue, and catalog config.</p>
+      <nav class="top">
+        <a href="index.html">Home</a>
+        <a href="docs/ui-tour.html">Markdown doc</a>
+        <a href="docs/architecture.html">Architecture</a>
+        <a href="https://github.com/aeltai/rancher-devportal">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap tour-layout">
+    <aside class="tour-nav">
+      <h2>Screens</h2>
+      <ol id="tourOutline"></ol>
+      <section class="tour-arch card" style="margin-top:1rem;padding:0.75rem;">
+        <strong>Stack</strong>
+        <pre>UI extension → Controller (:9010) → PlatformRequest CR
+                              ↓
+                     Operator → Git + Fleet</pre>
+      </section>
+    </aside>
+
+    <section class="tour-stage">
+      <div class="tour-caption">
+        <h3 id="slideTitle"></h3>
+        <p id="slideDesc"></p>
+      </div>
+      <div class="tour-viewport">
+        <img id="slideImg" alt="" />
+      </div>
+      <div class="tour-controls">
+        <button type="button" id="prevBtn">← Previous</button>
+        <div class="tour-dots" id="dots"></div>
+        <button type="button" id="nextBtn" class="primary">Next →</button>
+      </div>
+      <div class="tour-thumb-grid" id="thumbs"></div>
+    </section>
+  </main>
+
+  <script>
+    const slides = [
+      {
+        file: 'screenshots/01-user-marketplace.png',
+        title: 'User marketplace',
+        desc: 'End-user home: Geeko-Ops hero, ops marketplace collections, and Request environment CTA.',
+      },
+      {
+        file: 'screenshots/02-request-wizard.png',
+        title: 'Request wizard — basics',
+        desc: 'Six-step Shell Wizard: name your environment and walk the catalog (Basics → Collection → Offering → Configure → Delivery → Review).',
+      },
+      {
+        file: 'screenshots/03-wizard-configure.png',
+        title: 'Request wizard — configure',
+        desc: 'Dynamic form fields from catalog formSchema (Helm charts, CRD fields, or generic manifests).',
+      },
+      {
+        file: 'screenshots/04-my-environments.png',
+        title: 'My environments',
+        desc: 'Status tabs (All / Awaiting approval / Active / Declined) and per-request detail cards.',
+      },
+      {
+        file: 'screenshots/05-admin-ops-queue.png',
+        title: 'Admin — Ops queue',
+        desc: 'Administrators see every request, approval queue, and expandable Git / Fleet detail.',
+      },
+      {
+        file: 'screenshots/06-admin-request-env.png',
+        title: 'Admin — Request env',
+        desc: 'Same self-service catalog flow as users — admins can dogfood offerings before publishing.',
+      },
+      {
+        file: 'screenshots/07-catalog-config.png',
+        title: 'Catalog & config',
+        desc: 'Visual editor for collections, offerings, Git connections, and approval rules. YAML round-trip supported.',
+      },
+      {
+        file: 'screenshots/08-request-detail.png',
+        title: 'Request detail',
+        desc: 'Expanded row: Git manifest preview, Fleet sync status, approve / reject actions.',
+      },
+    ];
+
+    let index = 0;
+    const img = document.getElementById('slideImg');
+    const title = document.getElementById('slideTitle');
+    const desc = document.getElementById('slideDesc');
+    const prev = document.getElementById('prevBtn');
+    const next = document.getElementById('nextBtn');
+    const dots = document.getElementById('dots');
+    const thumbs = document.getElementById('thumbs');
+    const outline = document.getElementById('tourOutline');
+
+    function render(i) {
+      index = (i + slides.length) % slides.length;
+      const s = slides[index];
+      img.src = s.file;
+      img.alt = s.title;
+      title.textContent = `${index + 1}. ${s.title}`;
+      desc.textContent = s.desc;
+      prev.disabled = index === 0;
+      next.disabled = index === slides.length - 1;
+      dots.querySelectorAll('button').forEach((b, j) => b.classList.toggle('active', j === index));
+      thumbs.querySelectorAll('button').forEach((b, j) => b.classList.toggle('active', j === index));
+      outline.querySelectorAll('a').forEach((a, j) => a.classList.toggle('active', j === index));
+    }
+
+    slides.forEach((s, i) => {
+      const dot = document.createElement('button');
+      dot.type = 'button';
+      dot.title = s.title;
+      dot.addEventListener('click', () => render(i));
+      dots.appendChild(dot);
+
+      const thumb = document.createElement('button');
+      thumb.type = 'button';
+      thumb.className = 'tour-thumb';
+      thumb.innerHTML = `<img src="${s.file}" alt="${s.title}" loading="lazy" />`;
+      thumb.addEventListener('click', () => render(i));
+      thumbs.appendChild(thumb);
+
+      const li = document.createElement('li');
+      const a = document.createElement('a');
+      a.href = '#';
+      a.textContent = s.title;
+      a.addEventListener('click', (e) => { e.preventDefault(); render(i); });
+      li.appendChild(a);
+      outline.appendChild(li);
+    });
+
+    prev.addEventListener('click', () => render(index - 1));
+    next.addEventListener('click', () => render(index + 1));
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft') render(index - 1);
+      if (e.key === 'ArrowRight') render(index + 1);
+    });
+
+    const q = new URLSearchParams(location.search).get('slide');
+    render(q ? Math.min(slides.length - 1, Math.max(0, parseInt(q, 10) - 1)) : 0);
+  </script>
+</body>
+</html>

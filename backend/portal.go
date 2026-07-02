@@ -126,8 +126,17 @@ func ensureClusterReady(ru *requestUser) error {
 }
 
 func ensurePlatformCRD(kubeCfg string) error {
-	if _, err := runKubectlWithConfig(kubeCfg, "get", "crd", "platformrequests.platform.devportal.io"); err == nil {
+	_, err := runKubectlWithConfig(kubeCfg, "get", "crd", "platformrequests.platform.devportal.io")
+	if err == nil {
 		return nil
+	}
+	errMsg := err.Error()
+	// Non-admins cannot read or install CRDs; chart/operator must pre-install the CRD.
+	if strings.Contains(errMsg, "Forbidden") {
+		return nil
+	}
+	if !strings.Contains(errMsg, "NotFound") && !strings.Contains(errMsg, "not found") {
+		return err
 	}
 	args := []string{"apply", "-f", "-"}
 	if kubeCfg != "" {

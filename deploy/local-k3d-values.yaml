@@ -1,0 +1,45 @@
+# Geeko-Ops on krew-workstation Rancher (embedded k3s in rancher container).
+# Used by scripts/install-local-k3d.sh
+
+devportal:
+  fullnameOverride: geeko-ops-controller
+  image:
+    repository: ghcr.io/aeltai/rancher-devportal-backend
+    tag: v0.1.0
+    pullPolicy: IfNotPresent
+  podSecurityContext:
+    runAsNonRoot: false
+    runAsUser: 0
+  rancher:
+    # In-cluster pods reach Rancher via the cattle-system Service (127.0.0.1 is wrong inside pods).
+    url: "https://rancher.cattle-system.svc:443"
+    publicHost: "localhost:8449"
+    token: ""  # set via --set at install time
+  uiPlugin:
+    enabled: true
+    pluginName: devportal
+    namespace: cattle-ui-plugin-system
+    version: "0.1.0"
+    endpoint: "https://aeltai.github.io/rancher-devportal/extensions/devportal/0.1.0/plugin"
+    noCache: true
+    metadata:
+      catalog.cattle.io/display-name: Geeko-Ops
+  platformConfig:
+    create: true
+    name: platform-config
+  git:
+    credentials:
+      create: false
+      existingSecret: platform-git-credentials
+  service:
+    type: ClusterIP
+    port: 3000
+
+operator:
+  fullnameOverride: platform-operator
+  image:
+    repository: ghcr.io/aeltai/rancher-devportal-operator
+    tag: v0.1.0
+    pullPolicy: IfNotPresent
+  platformConfig:
+    configMapName: platform-config

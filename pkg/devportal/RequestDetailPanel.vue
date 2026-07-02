@@ -20,28 +20,16 @@
       </button>
     </div>
 
-    <div v-if="detailTab === 'git' && request.gitPreview?.files?.length" class="dp-detail-panel dp-git-preview">
-      <p v-if="request.gitPreview.gitRepo" class="dp-git-meta">
-        <code>{{ request.gitPreview.gitRepo }}</code>
-        <span v-if="request.gitPreview.gitBranch"> · {{ request.gitPreview.gitBranch }}</span>
-      </p>
-      <div class="dp-git-preview-layout">
-        <pre class="dp-yaml dp-yaml-tree dp-yaml-compact"><code>{{ request.gitPreview.tree }}</code></pre>
-        <div class="dp-git-file-pane">
-          <div class="dp-git-file-tabs">
-            <button
-              v-for="f in request.gitPreview.files"
-              :key="f.path"
-              :class="['dp-git-file-tab', { active: selectedGitFile === f.path }]"
-              type="button"
-              @click="$emit('select-git-file', f.path)"
-            >
-              {{ fileBaseName(f.path) }}
-            </button>
-          </div>
-          <pre class="dp-yaml dp-yaml-compact"><code>{{ selectedGitFileContent }}</code></pre>
-        </div>
-      </div>
+    <div v-if="detailTab === 'git' && request.gitPreview?.files?.length" class="dp-detail-panel">
+      <GitManifestPreview
+        :files="request.gitPreview.files"
+        :git-repo="request.gitPreview.gitRepo || request.gitRepoUrl"
+        :git-branch="request.gitPreview.gitBranch || request.gitBranch"
+        :git-path="request.gitPreview.gitPath || request.gitPath"
+        :selected-path="selectedGitFile"
+        :selected-content="selectedGitFileContent"
+        @select="$emit('select-git-file', $event)"
+      />
     </div>
     <p v-else-if="detailTab === 'git'" class="empty">No Git manifests for this request.</p>
 
@@ -72,14 +60,23 @@
     </div>
 
     <div v-if="detailTab === 'yaml'" class="dp-detail-panel">
-      <pre class="dp-yaml dp-yaml-compact"><code>{{ request.manifestYaml || '—' }}</code></pre>
+      <YamlCodeBlock
+        :value="request.manifestYaml || '—'"
+        title="PlatformRequest manifest"
+        icon="yaml"
+        max-height="420px"
+      />
     </div>
   </div>
 </template>
 
 <script>
+import GitManifestPreview from './GitManifestPreview.vue';
+import YamlCodeBlock from './YamlCodeBlock.vue';
+
 export default {
   name: 'RequestDetailPanel',
+  components: { GitManifestPreview, YamlCodeBlock },
   props: {
     request: { type: Object, required: true },
     isAdmin: { type: Boolean, default: false },
@@ -101,10 +98,50 @@ export default {
       return tabs;
     },
   },
-  methods: {
-    fileBaseName(path) {
-      return path.split('/').pop() || path;
-    },
-  },
 };
 </script>
+
+<style lang="scss" scoped>
+.dp-git-meta {
+  margin: 12px 0 0;
+  font-size: 0.82em;
+  color: var(--muted);
+
+  code {
+    background: var(--sortable-table-header-bg, rgba(0, 0, 0, 0.04));
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+}
+
+.dp-fleet-table {
+  width: 100%;
+  font-size: 0.82em;
+  border-collapse: collapse;
+
+  th, td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+  }
+
+  th {
+    font-size: 0.78em;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--muted);
+  }
+}
+
+.fleet-phase {
+  font-weight: 600;
+  font-size: 0.9em;
+}
+
+.empty {
+  padding: 20px;
+  font-size: 0.88em;
+  color: var(--muted);
+  text-align: center;
+}
+</style>

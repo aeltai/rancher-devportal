@@ -7,7 +7,7 @@ sequenceDiagram
   participant User
   participant UI as DevPortalPage
   participant Rancher
-  participant API as devportal-backend
+  participant API as geeko-ops-controller
   participant Op as platform-operator
   participant K8s as Management cluster
   participant Git as User Git repo
@@ -33,8 +33,8 @@ sequenceDiagram
 
 | Component | Role |
 |-----------|------|
-| **DevPortal UI** | Catalog-driven wizard; admin catalog builder; manifest preview and status |
-| **devportal-backend** | Auth, catalog API, offering resolution, CRD bootstrap, creates `PlatformRequest` CRs |
+| **Geeko-Ops UI** | Catalog-driven wizard; admin catalog builder; manifest preview and status |
+| **Geeko-Ops controller** | Auth, catalog API, offering resolution, CRD bootstrap (admin), creates `PlatformRequest` CRs |
 | **platform-operator** | Reconciles CRs: namespace → Git push → Fleet GitRepo → status |
 | **PlatformRequest CRD** | Desired state per environment request |
 | **Fleet GitRepo** | Pulls `environments/{name}/` from user-provided Git repo |
@@ -45,7 +45,7 @@ Platform offerings are configured in `platform.yaml` (ConfigMap `platform-config
 
 - **collections[]** — UI categories (Namespaces, Clusters, Platform Services, VMs, Custom)
 - **offerings[]** — requestable items with `kind`: `namespace`, `cluster`, `helm`, `crd`, `generic`
-- **formSchema[]** — admin-defined fields rendered as user forms; backend builds `specYaml` or `manifestYaml`
+- **formSchema[]** — admin-defined fields rendered as user forms; the controller builds `specYaml` or `manifestYaml`
 - Legacy **templates[]** / **charts[]** auto-migrate to offerings when collections are absent
 
 See [platform-config.md](platform-config.md) for schema details.
@@ -160,7 +160,7 @@ Charts alone (any template) also trigger Git push + Fleet GitRepo.
 
 ## Kubeconfig resolution
 
-The backend does **not** mount the host kubeconfig. Instead on first use it:
+The controller does **not** mount the host kubeconfig. Instead on first use it:
 
 1. Calls Rancher `POST /v3/clusters/:id?action=generateKubeconfig`
 2. Rewrites loopback/`0.0.0.0` server URLs to `rancher:443` (Docker network alias)
@@ -179,12 +179,12 @@ Users with `globalRoleBindings` of `admin` or username `admin` see:
 
 ## Separation from Krew Workstation
 
-| | Krew Workstation | Developer Portal |
-|--|------------------|------------------|
+| | Krew Workstation | Geeko-Ops |
+|--|------------------|-----------|
 | Repo | `krew-workstation` | `rancher-devportal` |
-| Product | Tools → Krew | Platform → Developer Portal |
-| Backend port | 9000 | 9010 |
-| Backend focus | Terminal, kubectl plugins, backups | PlatformRequest + operator |
+| Product | Tools → Krew | Platform → Geeko-Ops |
+| Controller port | 9000 | 9010 |
+| Controller focus | Terminal, kubectl plugins, backups | PlatformRequest + operator |
 | CRD | — | `platformrequests.platform.devportal.io` |
 | Operator | — | `platform-operator` |
 

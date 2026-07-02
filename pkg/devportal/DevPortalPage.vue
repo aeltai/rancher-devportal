@@ -254,53 +254,6 @@ export default {
     &.Pushing { background: rgba(0, 100, 200, 0.12); color: var(--primary); }
   }
 
-  .dp-git-preview-layout {
-    display: grid;
-    grid-template-columns: minmax(180px, 260px) 1fr;
-    gap: 12px;
-    align-items: start;
-  }
-
-  .dp-git-file-tabs {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-bottom: 8px;
-  }
-
-  .dp-git-file-tab {
-    border: 1px solid var(--border);
-    background: var(--body-bg);
-    color: var(--body-text);
-    border-radius: 3px;
-    padding: 4px 8px;
-    font-size: 0.78em;
-    cursor: pointer;
-    &.active { border-color: var(--primary); color: var(--primary); }
-  }
-
-  .dp-yaml {
-    margin: 0;
-    padding: 10px 12px;
-    max-height: 240px;
-    overflow: auto;
-    font-size: 0.72em;
-    line-height: 1.5;
-    background: #0d1117;
-    color: #e6edf3;
-
-    &.dp-yaml-compact { max-height: 200px; font-size: 0.7em; }
-    &.dp-yaml-tree code { color: #a5d6ff; }
-
-    code {
-      background: transparent;
-      padding: 0;
-      color: inherit;
-      white-space: pre;
-      font-family: ui-monospace, monospace;
-    }
-  }
-
   .dp-fleet-table {
     width: 100%;
     font-size: 0.82em;

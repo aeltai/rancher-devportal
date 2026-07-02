@@ -1,7 +1,8 @@
-# Documentation index
+# Geeko-Ops UI tour
 
 | Doc | Description |
 |-----|-------------|
+| [ui-tour.md](ui-tour.md) | **UI slideshow** — real screenshots, components, controller stack |
 | [devportal-ui.md](devportal-ui.md) | Wizard, templates, manifest preview, admin view |
 | [local-dev.md](local-dev.md) | Running the stack locally with krew-workstation |
 | [architecture.md](architecture.md) | Request flow, CRD design, Fleet plan, kubeconfig |

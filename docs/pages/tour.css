@@ -1,0 +1,167 @@
+/* Geeko-Ops UI tour slideshow */
+.tour-page header.hero.tour-hero {
+  background: linear-gradient(135deg, #0d47a1 0%, #1565c0 50%, #42a5f5 100%);
+}
+
+.tour-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+}
+
+@media (min-width: 960px) {
+  .tour-layout {
+    grid-template-columns: 280px 1fr;
+    align-items: start;
+  }
+}
+
+.tour-nav {
+  position: sticky;
+  top: 1rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem;
+}
+
+.tour-nav h2 {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+}
+
+.tour-nav ol {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.88rem;
+  line-height: 1.8;
+}
+
+.tour-nav a {
+  text-decoration: none;
+  color: var(--text);
+}
+
+.tour-nav a:hover,
+.tour-nav a.active {
+  color: var(--link);
+}
+
+.tour-stage {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.tour-viewport {
+  position: relative;
+  background: #eef1f4;
+  min-height: 420px;
+}
+
+.tour-viewport img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.tour-caption {
+  padding: 1rem 1.25rem 0.25rem;
+}
+
+.tour-caption h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+
+.tour-caption p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.tour-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.tour-controls button {
+  font: inherit;
+  cursor: pointer;
+  padding: 0.45rem 0.9rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--card);
+}
+
+.tour-controls button.primary {
+  background: var(--link);
+  border-color: var(--link);
+  color: #fff;
+}
+
+.tour-controls button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tour-dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: center;
+  flex: 1;
+}
+
+.tour-dots button {
+  width: 9px;
+  height: 9px;
+  padding: 0;
+  border-radius: 50%;
+  border: none;
+  background: #c4ccd4;
+}
+
+.tour-dots button.active {
+  background: var(--link);
+}
+
+.tour-arch {
+  margin-top: 1rem;
+}
+
+.tour-arch pre {
+  margin: 0.5rem 0 0;
+  font-size: 0.78rem;
+}
+
+.tour-thumb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.tour-thumb {
+  border: 2px solid transparent;
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  padding: 0;
+  background: none;
+}
+
+.tour-thumb.active {
+  border-color: var(--link);
+}
+
+.tour-thumb img {
+  display: block;
+  width: 100%;
+  height: auto;
+}

@@ -51,4 +51,6 @@ cd krew-workstation && API=http://localhost:8089 yarn dev   # https://localhost:
 cd rancher-devportal && yarn dev   # https://localhost:8006
 ```
 
-Backend proxy: `/devportal-api` → `http://localhost:9010`
+Controller proxy: `/devportal-api` → `http://localhost:9010`
+
+Screenshot tour: [ui-tour.md](ui-tour.md)

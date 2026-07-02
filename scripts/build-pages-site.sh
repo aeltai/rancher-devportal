@@ -17,6 +17,9 @@ mkdir -p "_site/$EXT_DIR" _site/docs
 
 cp docs/pages/index.html _site/index.html
 cp docs/pages/site.css _site/site.css
+cp docs/pages/tour.html _site/tour.html
+cp docs/pages/tour.css _site/tour.css
+cp -r docs/pages/screenshots _site/screenshots
 cp docs/pages/index.html _site/404.html
 touch _site/.nojekyll
 

@@ -13,7 +13,7 @@
 # 1. Start Rancher (inside krew-workstation)
 cd krew-workstation && docker compose up -d
 
-# 2. Start Gitea (local Fleet Git repo) + devportal backend
+# 2. Start Gitea (local Fleet Git repo) + Geeko-Ops controller
 export RANCHER_TOKEN=$(grep RANCHER_TOKEN krew-workstation/.env | cut -d= -f2-)
 cd krew-workstation && docker compose up -d gitea
 cd ../rancher-devportal
@@ -26,9 +26,11 @@ cd krew-workstation && ./scripts/link-devportal.sh
 API=http://localhost:8089 yarn dev
 ```
 
-Open **https://localhost:8005** → Platform → Developer Portal.
+Open **https://localhost:8005** → Platform → Geeko-Ops.
 
-## Backend environment variables
+See [ui-tour.md](ui-tour.md) for a screenshot walkthrough.
+
+## Controller environment variables
 
 Set in `docker-compose.local.yml`:
 
@@ -41,7 +43,7 @@ Set in `docker-compose.local.yml`:
 | `PLATFORM_GIT_BRANCH` | `main` | Default branch |
 | `PLATFORM_GIT_SECRET` | `platform-git-credentials` | Default Secret name for Git PAT |
 | `PLATFORM_FLEET_NAMESPACE` | `fleet-default` | Namespace for Fleet GitRepo CRs |
-| `ALLOW_SERVICE_TOKEN` | `false` | Set `true` to allow backend's own token (dev only) |
+| `ALLOW_SERVICE_TOKEN` | `false` | Set `true` to allow the controller's service token fallback (dev only) |
 
 ## Deploying the platform operator
 
@@ -52,7 +54,7 @@ docker exec krew-workstation-rancher-1 kubectl -n devportal-system get pods -l a
 
 See [architecture.md](architecture.md) for reconcile flow and Git manifest layout.
 
-## Rebuilding the backend
+## Rebuilding the controller
 
 After any Go changes:
 
@@ -63,7 +65,7 @@ docker compose -f docker-compose.local.yml up -d --build
 
 ## Applying the CRD manually
 
-The backend auto-applies the embedded CRD on startup. To apply manually:
+The controller auto-applies the embedded CRD when the caller is allowed. Non-admin users require the CRD to be pre-installed. Manual apply:
 
 ```bash
 kubectl apply -f deploy/crd/platformrequest.yaml

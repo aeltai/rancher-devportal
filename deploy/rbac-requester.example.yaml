@@ -1,0 +1,34 @@
+# Grant a Rancher user permission to create PlatformRequest CRs in devportal-system.
+#
+# Prerequisites:
+# 1. PlatformRequest CRD installed (helm devportal chart or deploy/crd/platformrequest.yaml)
+# 2. devportal-system namespace exists
+# 3. User is a Cluster Member on the target cluster (Rancher UI → Cluster Management → Members)
+#
+# Replace USER_ID with the Rancher user id (e.g. u-sl58k from /v3/users).
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: geeko-ops-requester
+rules:
+  - apiGroups: ["platform.devportal.io"]
+    resources: ["platformrequests"]
+    verbs: ["create", "get", "list", "watch"]
+  - apiGroups: ["platform.devportal.io"]
+    resources: ["platformrequests/status"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: geeko-ops-requester-USER_ID
+  namespace: devportal-system
+subjects:
+  - kind: User
+    name: USER_ID
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: geeko-ops-requester
+  apiGroup: rbac.authorization.k8s.io
