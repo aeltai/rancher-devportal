@@ -23,13 +23,13 @@
       </div>
       <div class="row">
         <div class="col span-3">
-          <LabeledInput v-model:value="field.key" label="Key" placeholder="cpu" />
+          <DpInput v-model:value="field.key" label="Key" placeholder="cpu" />
         </div>
         <div class="col span-3">
-          <LabeledInput v-model:value="field.label" label="Label" placeholder="CPU cores" />
+          <DpInput v-model:value="field.label" label="Label" placeholder="CPU cores" />
         </div>
         <div class="col span-3">
-          <LabeledSelect
+          <DpSelect
             v-model:value="field.type"
             label="Type"
             :options="typeOptions"
@@ -38,10 +38,10 @@
           />
         </div>
         <div class="col span-3">
-          <LabeledInput v-model:value="field.default" label="Default" />
+          <DpInput v-model:value="field.default" label="Default" />
         </div>
         <div class="col span-6">
-          <LabeledInput
+          <DpInput
             v-model:value="field.specPath"
             label="Spec path"
             placeholder="spec.template.spec.domain.cpu.cores"
@@ -49,7 +49,7 @@
           />
         </div>
         <div v-if="field.type === 'select'" class="col span-6">
-          <LabeledInput
+          <DpInput
             :value="(field.options || []).join(', ')"
             label="Options"
             placeholder="small, medium, large"
@@ -57,7 +57,7 @@
           />
         </div>
         <div class="col span-12">
-          <Checkbox v-model:value="field.required" label="Required field" />
+          <DpCheckbox v-model:value="field.required" label="Required field" />
         </div>
       </div>
     </article>
@@ -65,13 +65,13 @@
 </template>
 
 <script>
-import LabeledSelect from '@shell/components/form/LabeledSelect';
-import { LabeledInput } from '@components/Form/LabeledInput';
-import { Checkbox } from '@components/Form/Checkbox';
+import DpInput from './DpInput.vue';
+import DpSelect from './DpSelect.vue';
+import DpCheckbox from './DpCheckbox.vue';
 
 export default {
   name: 'FieldBuilder',
-  components: { LabeledInput, LabeledSelect, Checkbox },
+  components: { DpInput, DpSelect, DpCheckbox },
   props: {
     modelValue: { type: Array, default: () => [] },
   },
@@ -98,12 +98,12 @@ export default {
     },
     addField() {
       this.$emit('update:modelValue', [
-        ...this.localFields,
-        { key: '', label: '', type: 'text', specPath: '', default: '', required: false, options: [] },
+        ...(this.modelValue || []),
+        { key: '', label: '', type: 'text', default: '', required: false },
       ]);
     },
     removeField(idx) {
-      const next = [...this.localFields];
+      const next = [...(this.modelValue || [])];
       next.splice(idx, 1);
       this.$emit('update:modelValue', next);
     },
@@ -111,56 +111,10 @@ export default {
 };
 </script>
 
-<style lang="scss" scoped>
-.field-builder {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
-}
-
-.field-builder-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 12px;
-
-  strong {
-    display: block;
-    font-size: 0.88em;
-    margin-bottom: 2px;
-  }
-
-  p {
-    margin: 0;
-    font-size: 0.78em;
-    color: var(--muted);
-  }
-}
-
-.field-builder-empty {
-  padding: 12px;
-  font-size: 0.82em;
-  color: var(--muted);
-  border: 1px dashed var(--border);
-  border-radius: 4px;
-  text-align: center;
-}
-
-.field-builder-row {
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 12px;
-  margin-bottom: 10px;
-  background: var(--sortable-table-row-bg, var(--body-bg));
-}
-
-.field-builder-row-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
-  font-size: 0.85em;
-  font-weight: 600;
-}
+<style scoped>
+.field-builder-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+.field-builder-head p { margin: 4px 0 0; font-size: .85em; opacity: .8; }
+.field-builder-empty { padding: 16px; text-align: center; opacity: .7; border: 1px dashed var(--border); border-radius: 4px; }
+.field-builder-row { border: 1px solid var(--border); border-radius: 4px; padding: 10px; margin-bottom: 10px; }
+.field-builder-row-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 </style>

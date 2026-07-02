@@ -13,11 +13,13 @@
   "scripts": {
     "dev": "NODE_ENV=dev ./node_modules/.bin/vue-cli-service serve --port 8006",
     "build": "./node_modules/.bin/vue-cli-service build",
-    "build-pkg": "./node_modules/@rancher/shell/scripts/build-pkg.sh devportal",
+    "build-pkg": "./scripts/build-pkg.sh devportal",
     "clean": "./node_modules/@rancher/shell/scripts/clean",
     "postinstall": "node scripts/patch-shell-vue3-refs.js"
   },
-  "engines": { "node": ">=20.0.0" },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "dependencies": {
     "@rancher/components": "0.2.1-alpha.0",
     "@rancher/shell": "3.0.4",
@@ -44,6 +46,7 @@
     "@vue/cli-service": "5.0.8",
     "@vue/eslint-config-typescript": "^9.1.0",
     "core-js": "3.40.0",
+    "esbuild-loader": "4",
     "eslint": "^7.32.0",
     "eslint-plugin-vue": "^8.0.3",
     "sass": "^1.32.7",

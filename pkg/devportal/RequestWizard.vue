@@ -1,12 +1,9 @@
 <template>
   <div class="request-wizard">
-    <Wizard
+    <SimpleWizard
       :steps="steps"
       :errors="errors"
-      :edit-first-step="true"
       banner-title="Geeko-Ops — new request"
-      header-mode="create"
-      finish-mode="create"
       @cancel="$emit('cancel')"
       @finish="submit"
     >
@@ -152,12 +149,12 @@
           </template>
         </dl>
       </template>
-    </Wizard>
+    </SimpleWizard>
   </div>
 </template>
 
 <script>
-import Wizard from '@shell/components/Wizard';
+import SimpleWizard from './SimpleWizard.vue';
 import OfferingFormField from './OfferingFormField.vue';
 import OfferingIcon from './OfferingIcon.vue';
 
@@ -165,7 +162,7 @@ const SLUG_RE = /^[a-z0-9]([a-z0-9-]{1,28}[a-z0-9])?$/;
 
 export default {
   name: 'RequestWizard',
-  components: { Wizard, OfferingFormField, OfferingIcon },
+  components: { SimpleWizard, OfferingFormField, OfferingIcon },
   props: {
     collections: { type: Array, default: () => [] },
     offerings: { type: Array, default: () => [] },

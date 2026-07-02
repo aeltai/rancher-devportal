@@ -9,10 +9,17 @@
         </div>
       </div>
       <div class="dp-admin-settings-toolbar">
-        <ButtonGroup
-          v-model:value="mode"
-          :options="modeOptions"
-        />
+        <div class="dp-mode-toggle">
+          <button
+            v-for="opt in modeOptions"
+            :key="opt.value"
+            type="button"
+            :class="['btn', mode === opt.value ? 'role-primary' : 'role-secondary']"
+            @click="mode = opt.value"
+          >
+            {{ opt.label }}
+          </button>
+        </div>
         <button v-if="!embedded" class="btn role-tertiary" type="button" aria-label="Close settings" @click="$emit('close')">
           <i class="icon icon-close" />
         </button>
@@ -21,11 +28,11 @@
 
     <div class="dp-admin-settings-body">
       <div v-if="mode === 'yaml'" class="dp-admin-yaml">
-        <Banner
+        <DpBanner
           color="info"
           label="Edit platform.yaml directly. Switch back to Visual editor to validate structure before saving."
         />
-        <LabeledInput
+        <DpInput
           v-model:value="yamlText"
           type="multiline"
           label="Platform configuration (YAML)"
@@ -34,15 +41,15 @@
         />
       </div>
 
-      <Tabbed
+      <DpTabs
         v-else
-        :use-hash="false"
-        :flat="true"
+        v-model="adminTab"
+        :tabs="adminTabs"
         class="dp-admin-tabbed"
       >
-        <Tab name="overview" label="How it works">
+        <template #overview>
           <div class="dp-admin-overview">
-            <Banner
+            <DpBanner
               color="info"
               label="The catalog is stored in platform.yaml (ConfigMap platform-config). Users pick Collection → Offering in the request wizard; the operator renders Git + Fleet manifests."
             />
@@ -80,9 +87,9 @@
             </div>
             <p v-if="importMsg" class="dp-admin-hint">{{ importMsg }}</p>
           </div>
-        </Tab>
+        </template>
 
-        <Tab name="collections" label="Collections">
+        <template #collections>
           <div class="dp-admin-tab-intro">
             <p>Group offerings into catalog sections shown in the request wizard.</p>
             <button class="btn role-secondary" type="button" @click="addCollection">
@@ -108,16 +115,16 @@
             </div>
             <div class="row">
               <div class="col span-3">
-                <LabeledInput v-model:value="col.id" label="ID" placeholder="compute" />
+                <DpInput v-model:value="col.id" label="ID" placeholder="compute" />
               </div>
               <div class="col span-4">
-                <LabeledInput v-model:value="col.label" label="Label" placeholder="Compute" />
+                <DpInput v-model:value="col.label" label="Label" placeholder="Compute" />
               </div>
               <div class="col span-2">
-                <LabeledInput v-model:value="col.weight" label="Weight" type="number" placeholder="50" />
+                <DpInput v-model:value="col.weight" label="Weight" type="number" placeholder="50" />
               </div>
               <div class="col span-12">
-                <LabeledInput
+                <DpInput
                   v-model:value="col.description"
                   label="Description"
                   placeholder="Short summary for the request wizard"
@@ -125,9 +132,9 @@
               </div>
             </div>
           </article>
-        </Tab>
+        </template>
 
-        <Tab name="offerings" label="Offerings">
+        <template #offerings>
           <div class="dp-admin-tab-intro">
             <p>Define what users can request — namespaces, Helm charts, CRDs, or generic manifests.</p>
             <button class="btn role-secondary" type="button" @click="addOffering">
@@ -140,7 +147,7 @@
             <p>No offerings yet. Add one and assign it to a collection.</p>
           </div>
 
-          <CollapsibleCard
+          <DpCollapse
             v-for="(off, idx) in config.offerings"
             :key="off.id || `off-${idx}`"
             :title="offeringCardTitle(off)"
@@ -148,7 +155,6 @@
             class="dp-admin-offering-card"
             @toggleCollapse="toggleOffering(idx, $event)"
           >
-            <template #content>
             <div class="dp-admin-card-actions">
               <button class="btn role-tertiary" type="button" @click="config.offerings.splice(idx, 1)">
                 Remove offering
@@ -156,10 +162,10 @@
             </div>
             <div class="row">
               <div class="col span-3">
-                <LabeledInput v-model:value="off.id" label="ID" placeholder="team-namespace" />
+                <DpInput v-model:value="off.id" label="ID" placeholder="team-namespace" />
               </div>
               <div class="col span-3">
-                <LabeledSelect
+                <DpSelect
                   v-model:value="off.collectionId"
                   label="Collection"
                   :options="collectionOptions"
@@ -168,10 +174,10 @@
                 />
               </div>
               <div class="col span-3">
-                <LabeledInput v-model:value="off.label" label="Label" placeholder="Team namespace" />
+                <DpInput v-model:value="off.label" label="Label" placeholder="Team namespace" />
               </div>
               <div class="col span-3">
-                <LabeledSelect
+                <DpSelect
                   v-model:value="off.kind"
                   label="Kind"
                   :options="kindOptions"
@@ -180,12 +186,12 @@
                 />
               </div>
               <div class="col span-12">
-                <LabeledInput v-model:value="off.description" label="Description" />
+                <DpInput v-model:value="off.description" label="Description" />
               </div>
             </div>
 
             <div v-if="off.kind === 'helm'" class="dp-admin-subsection">
-              <LabeledInput
+              <DpInput
                 :value="(off.charts || []).join(', ')"
                 label="Chart IDs"
                 placeholder="rancher-monitoring, cert-manager"
@@ -210,7 +216,7 @@
             </div>
 
             <div v-if="off.kind === 'generic'" class="dp-admin-subsection">
-              <LabeledInput
+              <DpInput
                 v-model:value="off.manifestTemplate"
                 type="multiline"
                 label="Manifest template"
@@ -220,18 +226,17 @@
             </div>
 
             <div v-if="off.kind === 'namespace'" class="dp-admin-subsection">
-              <Checkbox v-model:value="off.cloneFrom" label="Allow clone from existing namespace" />
+              <DpCheckbox v-model:value="off.cloneFrom" label="Allow clone from existing namespace" />
             </div>
 
             <div class="dp-admin-checks">
-              <Checkbox v-model:value="off.gitOps" label="GitOps delivery" />
-              <Checkbox v-model:value="off.requiresApproval" label="Requires admin approval" />
+              <DpCheckbox v-model:value="off.gitOps" label="GitOps delivery" />
+              <DpCheckbox v-model:value="off.requiresApproval" label="Requires admin approval" />
             </div>
-            </template>
-          </CollapsibleCard>
-        </Tab>
+          </DpCollapse>
+        </template>
 
-        <Tab name="git" label="Git connections">
+        <template #git>
           <div class="dp-admin-tab-intro">
             <p>Fleet Git repositories used when provisioning approved environments.</p>
             <button class="btn role-secondary" type="button" @click="addGitRepo">
@@ -239,7 +244,7 @@
             </button>
           </div>
 
-          <Banner
+          <DpBanner
             v-if="gitTestMsg"
             :color="gitTestOk ? 'success' : gitTestMsg === 'Testing…' ? 'info' : 'error'"
             :label="gitTestMsg"
@@ -265,16 +270,16 @@
             </div>
             <div class="row">
               <div class="col span-3">
-                <LabeledInput v-model:value="repo.id" label="ID" placeholder="platform-fleet" />
+                <DpInput v-model:value="repo.id" label="ID" placeholder="platform-fleet" />
               </div>
               <div class="col span-4">
-                <LabeledInput v-model:value="repo.name" label="Display name" placeholder="Platform Fleet" />
+                <DpInput v-model:value="repo.name" label="Display name" placeholder="Platform Fleet" />
               </div>
               <div class="col span-2">
-                <LabeledInput v-model:value="repo.branch" label="Branch" placeholder="main" />
+                <DpInput v-model:value="repo.branch" label="Branch" placeholder="main" />
               </div>
               <div class="col span-3">
-                <LabeledInput
+                <DpInput
                   v-model:value="repo.secretName"
                   label="Secret name"
                   placeholder="platform-git-credentials"
@@ -282,7 +287,7 @@
                 />
               </div>
               <div class="col span-12">
-                <LabeledInput
+                <DpInput
                   v-model:value="repo.url"
                   label="Repository URL"
                   placeholder="https://github.com/org/fleet.git"
@@ -290,9 +295,9 @@
               </div>
             </div>
           </article>
-        </Tab>
+        </template>
 
-        <Tab name="approval" label="Approval & CRD">
+        <template #approval>
           <div class="dp-admin-tab-intro">
             <p>Control approval gates and CRD discovery for custom resource offerings.</p>
           </div>
@@ -300,8 +305,8 @@
           <div class="dp-admin-card">
             <h3 class="dp-admin-subheading">Approval policy</h3>
             <div class="dp-admin-checks dp-admin-checks--stacked">
-              <Checkbox v-model:value="config.approval.chartsRequireApproval" label="Helm charts require approval" />
-              <Checkbox
+              <DpCheckbox v-model:value="config.approval.chartsRequireApproval" label="Helm charts require approval" />
+              <DpCheckbox
                 v-model:value="config.approval.customResourcesRequireApproval"
                 label="Custom resources require approval"
               />
@@ -310,10 +315,10 @@
 
           <div class="dp-admin-card">
             <h3 class="dp-admin-subheading">CRD discovery</h3>
-            <Checkbox v-model:value="config.crdDiscovery.enabled" label="Enable CRD discovery for form builders" />
+            <DpCheckbox v-model:value="config.crdDiscovery.enabled" label="Enable CRD discovery for form builders" />
             <div class="row mt-10">
               <div class="col span-6">
-                <LabeledSelect
+                <DpSelect
                   v-model:value="config.crdDiscovery.clusters"
                   label="Discovery cluster"
                   :options="clusterOptions"
@@ -324,8 +329,8 @@
               </div>
             </div>
           </div>
-        </Tab>
-      </Tabbed>
+        </template>
+      </DpTabs>
     </div>
 
     <footer class="dp-admin-settings-footer">
@@ -340,14 +345,12 @@
 </template>
 
 <script>
-import Tab from '@shell/components/Tabbed/Tab';
-import Tabbed from '@shell/components/Tabbed';
-import ButtonGroup from '@shell/components/ButtonGroup';
-import CollapsibleCard from '@shell/components/CollapsibleCard';
-import LabeledSelect from '@shell/components/form/LabeledSelect';
-import { LabeledInput } from '@components/Form/LabeledInput';
-import { Checkbox } from '@components/Form/Checkbox';
-import { Banner } from '@components/Banner';
+import DpTabs from './DpTabs.vue';
+import DpCollapse from './DpCollapse.vue';
+import DpSelect from './DpSelect.vue';
+import DpInput from './DpInput.vue';
+import DpCheckbox from './DpCheckbox.vue';
+import DpBanner from './DpBanner.vue';
 import FieldBuilder from './FieldBuilder.vue';
 import CrdOfferingBuilder from './CrdOfferingBuilder.vue';
 
@@ -371,14 +374,12 @@ const DEFAULT_CONFIG = () => ({
 export default {
   name: 'CatalogAdminSettings',
   components: {
-    Tab,
-    Tabbed,
-    ButtonGroup,
-    CollapsibleCard,
-    LabeledInput,
-    LabeledSelect,
-    Checkbox,
-    Banner,
+    DpTabs,
+    DpCollapse,
+    DpInput,
+    DpSelect,
+    DpCheckbox,
+    DpBanner,
     FieldBuilder,
     CrdOfferingBuilder,
   },
@@ -393,6 +394,14 @@ export default {
   data() {
     return {
       mode: 'visual',
+      adminTab: 'overview',
+      adminTabs: [
+        { name: 'overview', label: 'How it works' },
+        { name: 'collections', label: 'Collections' },
+        { name: 'offerings', label: 'Offerings' },
+        { name: 'git', label: 'Git connections' },
+        { name: 'approval', label: 'Approval & CRD' },
+      ],
       yamlText: this.initialYaml,
       config: this.initialConfig ? JSON.parse(JSON.stringify(this.initialConfig)) : DEFAULT_CONFIG(),
       clusters: [],
@@ -592,6 +601,11 @@ export default {
   gap: 8px;
   align-items: center;
   flex-shrink: 0;
+}
+
+.dp-mode-toggle {
+  display: flex;
+  gap: 4px;
 }
 
 .dp-admin-settings-body {
