@@ -1,11 +1,31 @@
 function devportalBackendUrl() {
-  if (typeof window !== 'undefined') {
-    const { hostname, port } = window.location;
-    const isLocalHost = hostname === 'localhost' || hostname === '127.0.0.1';
-    if (isLocalHost && (port === '8005' || port === '8006')) {
-      return '/devportal-api';
-    }
+  if (typeof window === 'undefined') {
+    return 'http://localhost:9010';
   }
+
+  const { hostname, port, pathname } = window.location;
+  const isLocalHost = hostname === 'localhost' || hostname === '127.0.0.1';
+
+  // Shell dev server proxies to the controller (see vue.config.js /devportal-api).
+  if (isLocalHost && (port === '8005' || port === '8006')) {
+    return '/devportal-api';
+  }
+
+  // Inside Rancher (HTTPS) — call the in-cluster Service via same-origin k8s proxy.
+  // Direct http://localhost:9010 is blocked as mixed content from https://localhost:8449.
+  if (pathname.includes('/dashboard/')) {
+    const clusterMatch = pathname.match(/\/dashboard\/c\/([^/]+)\//);
+    let clusterId = clusterMatch ? clusterMatch[1] : 'local';
+    if (clusterId === '_') {
+      clusterId = 'local';
+    }
+    return `/k8s/clusters/${clusterId}/api/v1/namespaces/devportal-system/services/http:geeko-ops-controller:3000/proxy`;
+  }
+
+  if (isLocalHost) {
+    return 'http://localhost:9010';
+  }
+
   return 'http://localhost:9010';
 }
 
