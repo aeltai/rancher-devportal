@@ -393,6 +393,10 @@ export default {
   padding: 16px;
   min-height: 100%;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  text-align: left;
 
   &.dp-admin-tab-panel-settings {
     padding: 0;

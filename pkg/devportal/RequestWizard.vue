@@ -388,15 +388,16 @@ export default {
 .request-wizard {
   margin-top: 8px;
   width: 100%;
-  max-width: min(1080px, 100%);
-  margin-left: auto;
-  margin-right: auto;
-  padding: 0 clamp(8px, 1.5vw, 20px);
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
   box-sizing: border-box;
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
+  align-self: stretch;
+  text-align: left;
 }
 
 :deep(.outer-container) {
@@ -445,10 +446,6 @@ export default {
 }
 
 @media (max-width: 1440px) {
-  .request-wizard {
-    max-width: min(960px, 100%);
-  }
-
   :deep(.steps) {
     margin: 0 8px !important;
   }
@@ -459,9 +456,8 @@ export default {
 }
 
 @media (max-width: 1100px) {
-  .request-wizard {
-    max-width: 100%;
-    padding: 0 12px;
+  :deep(.steps) {
+    margin: 0 !important;
   }
 }
 
@@ -504,7 +500,7 @@ export default {
 .hint { font-size: 12px; color: var(--muted); margin: 4px 0 12px; }
 .label { display: block; font-weight: 600; margin-bottom: 4px; font-size: 13px; }
 .input-sm { padding: 6px 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--input-bg); color: var(--body-text); }
-.input-wide { width: 100%; max-width: 480px; }
+.input-wide { width: 100%; max-width: 640px; }
 .dp-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
 .dp-card { display: flex; flex-direction: column; gap: 6px; padding: 14px; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; background: var(--body-bg); align-items: flex-start; }
 .dp-card.selected { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
@@ -513,7 +509,7 @@ export default {
 .dp-chart-list { border: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
 .dp-chart-option { display: flex; gap: 10px; padding: 10px; border: 1px solid var(--border); border-radius: 4px; cursor: pointer; }
 .dp-chart-option.selected { border-color: var(--primary); }
-.dp-form-grid { display: grid; gap: 12px; max-width: 520px; }
+.dp-form-grid { display: grid; gap: 12px; max-width: 640px; }
 .dp-clone-panel { margin-top: 16px; padding: 12px; border: 1px dashed var(--border); border-radius: 6px; }
 .dp-review-dl { display: grid; grid-template-columns: 120px 1fr; gap: 8px 16px; font-size: 13px; }
 .dp-review-dl dt { font-weight: 600; color: var(--muted); }

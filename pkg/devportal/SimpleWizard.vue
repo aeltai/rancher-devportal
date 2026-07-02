@@ -103,9 +103,16 @@ export default {
 </script>
 
 <style scoped>
-.dp-wizard { display: flex; flex-direction: column; gap: 12px; }
-.dp-wizard-head h2 { margin: 0 0 8px; font-size: 1.1em; }
-.dp-wizard-steps { display: flex; flex-wrap: wrap; gap: 6px; }
+.dp-wizard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  align-self: stretch;
+  text-align: left;
+}
+.dp-wizard-head h2 { margin: 0 0 8px; font-size: 1.1em; text-align: left; }
+.dp-wizard-steps { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-start; }
 .dp-wizard-step {
   display: flex; align-items: center; gap: 6px; padding: 4px 10px;
   border: 1px solid var(--border); border-radius: 4px; background: var(--body-bg);
@@ -115,8 +122,14 @@ export default {
 .dp-wizard-step.done:not(.active) { border-color: var(--success); }
 .dp-wizard-step:disabled { opacity: .5; cursor: not-allowed; }
 .dp-wizard-step .num { font-weight: 600; }
-.dp-wizard-body { min-height: 200px; }
-.dp-wizard-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.dp-wizard-nav { display: flex; gap: 8px; }
+.dp-wizard-body { min-height: 200px; width: 100%; }
+.dp-wizard-foot {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+.dp-wizard-nav { display: flex; gap: 8px; margin-left: auto; }
 .banner.error { padding: 8px 10px; border-radius: 4px; background: rgba(204,74,74,.12); color: var(--error, #c00); }
 </style>
