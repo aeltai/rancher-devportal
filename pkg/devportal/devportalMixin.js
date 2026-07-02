@@ -11,9 +11,9 @@ function devportalBackendUrl() {
     return '/devportal-api';
   }
 
-  // Inside Rancher (HTTPS) — call the in-cluster Service via same-origin k8s proxy.
-  // Direct http://localhost:9010 is blocked as mixed content from https://localhost:8449.
-  if (pathname.includes('/dashboard/')) {
+  // Inside Rancher (HTTPS) — same-origin k8s Service proxy (mixed-content safe).
+  const inRancher = pathname.includes('/dashboard/') || port === '8449' || port === '8089';
+  if (inRancher) {
     const clusterMatch = pathname.match(/\/dashboard\/c\/([^/]+)\//);
     let clusterId = clusterMatch ? clusterMatch[1] : 'local';
     if (clusterId === '_') {
@@ -29,14 +29,23 @@ function devportalBackendUrl() {
   return 'http://localhost:9010';
 }
 
-const BACKEND_URL = devportalBackendUrl();
+function rancherClusterId() {
+  if (typeof window === 'undefined') {
+    return 'local';
+  }
+  const match = window.location.pathname.match(/\/dashboard\/c\/([^/]+)\//);
+  const id = match ? match[1] : 'local';
+  return id === '_' ? 'local' : id;
+}
 
 let _tokenCache = { token: null, expires: 0 };
 
 async function getRancherToken() {
   if (_tokenCache.token && Date.now() < _tokenCache.expires) return _tokenCache.token;
   const base = window.location.origin;
+  const clusterId = rancherClusterId();
   const paths = [
+    `/k8s/clusters/${clusterId}/apis/ext.cattle.io/v1/tokens`,
     '/k8s/clusters/local/apis/ext.cattle.io/v1/tokens',
     '/v1/tokens.ext.cattle.io',
   ];
@@ -112,6 +121,7 @@ export default {
 
   methods: {
     async api(method, path, body) {
+      const backend = devportalBackendUrl();
       const headers = { 'Content-Type': 'application/json' };
       try {
         const token = await getRancherToken();
@@ -119,13 +129,14 @@ export default {
       } catch (_) {}
       let resp;
       try {
-        resp = await fetch(`${BACKEND_URL}${path}`, {
+        resp = await fetch(`${backend}${path}`, {
           method,
           headers,
+          credentials: 'include',
           body: body ? JSON.stringify(body) : undefined,
         });
       } catch (e) {
-        throw new Error(`Backend unreachable — ${e.message}. Is devportal-backend running on :9010?`);
+        throw new Error(`Geeko-Ops controller unreachable (${backend}): ${e.message}`);
       }
       let data;
       const raw = await resp.text();
@@ -136,7 +147,7 @@ export default {
         throw new Error(
           hint
             ? `Backend error (${resp.status}): ${hint}`
-            : `Backend unreachable or wrong URL (${resp.status}). Restart devportal-backend on :9010 and use Shell dev UI (:8005 or :8006).`
+            : `Geeko-Ops controller error (${resp.status}) at ${backend}. Check geeko-ops-controller pod in devportal-system.`
         );
       }
       if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
